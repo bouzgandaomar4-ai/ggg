@@ -23,8 +23,7 @@
     
     /* LOADER */
     #loader {
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: linear-gradient(135deg, #0a0e17 0%, #1a1f2e 100%);
       display: flex; flex-direction: column;
       justify-content: center; align-items: center;
@@ -38,13 +37,10 @@
 
     /* WELCOME */
     #welcome-overlay {
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.98);
-      z-index: 10001;
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.98); z-index: 10001;
       display: flex; justify-content: center; align-items: center;
-      transition: opacity 1s ease;
-      pointer-events: none;
+      transition: opacity 1s ease; pointer-events: none;
     }
     #welcome-overlay.hidden { opacity: 0; }
     .welcome-text {
@@ -58,51 +54,14 @@
     /* CANVAS */
     #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 
-    /* UI LAYER - FIXED CENTERED */
-    .ui-layer {
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
-      pointer-events: none;
-      z-index: 100;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    /* BUTTONS CONTAINER - Always Centered */
-    .path-buttons {
-      position: relative;
-      width: 600px; height: 400px;
-      display: flex; justify-content: center; align-items: center;
-    }
-
-    .path-node { position: absolute; pointer-events: auto; }
-    
-    /* Closer to center */
-    .btn-path1 { top: 15%; left: 10%; }
-    .btn-path2 { bottom: 15%; left: 10%; }
-    .btn-path3 { top: 15%; right: 10%; }
-    .btn-path4 { bottom: 15%; right: 10%; }
-
-    /* GLASS BUTTONS */
-    .glass-btn {
-      padding: 12px 28px; font-size: 11px; color: #00eaff;
-      cursor: pointer; background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(16px); border: 1px solid rgba(0, 234, 255, 0.4);
-      border-radius: 12px; transition: all 0.3s ease;
-      font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase;
-    }
-    .glass-btn:hover { background: rgba(0, 234, 255, 0.2); box-shadow: 0 0 20px rgba(0, 234, 255, 0.5); }
-    .glass-btn.active { background: rgba(0, 234, 255, 0.3); color: #fff; }
-
-    /* BACK BUTTON */
+    /* BACK BUTTON (Fixed on screen) */
     .back-btn {
       position: fixed; bottom: 40px; right: 40px;
       padding: 14px 28px; font-size: 12px; color: #fff;
       background: rgba(0, 234, 255, 0.1); border: 1px solid rgba(0, 234, 255, 0.5);
-      border-radius: 12px; cursor: pointer; pointer-events: auto;
+      border-radius: 12px; cursor: pointer;
       opacity: 0; transform: translateY(20px); transition: all 0.5s ease;
-      z-index: 150;
+      z-index: 150; pointer-events: auto;
     }
     .back-btn.show { opacity: 1; transform: translateY(0); }
     .back-btn:hover { background: rgba(0, 234, 255, 0.3); }
@@ -127,27 +86,11 @@
 
   <div id="canvas-container"></div>
 
-  <div class="ui-layer">
-    <div class="path-buttons">
-      <div class="path-node btn-path1">
-        <button class="glass-btn" onclick="playPath(1)">PATH 01</button>
-      </div>
-      <div class="path-node btn-path2">
-        <button class="glass-btn" onclick="playPath(2)">PATH 02</button>
-      </div>
-      <div class="path-node btn-path3">
-        <button class="glass-btn" onclick="playPath(3)">PATH 03</button>
-      </div>
-      <div class="path-node btn-path4">
-        <button class="glass-btn" onclick="playPath(4)">PATH 04</button>
-      </div>
-    </div>
-    
-    <button class="back-btn" id="backBtn" onclick="resetCamera()">← BACK TO START</button>
-    
-    <div class="slogan">
-      "We find and build what others can't.<br>We break what others trust."
-    </div>
+  <!-- Buttons are now inside 3D scene, only Back button is here -->
+  <button class="back-btn" id="backBtn" onclick="resetCamera()">← BACK TO START</button>
+  
+  <div class="slogan">
+    "We find and build what others can't.<br>We break what others trust."
   </div>
 
   <script type="module" src="script.js"></script>
