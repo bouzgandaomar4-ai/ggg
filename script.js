@@ -22,15 +22,15 @@ let plexusGroup = null;
 let plexusPoints = [];
 let plexusLines = null;
 
-// Animation State
-let animState = 'IDLE'; // IDLE, ALIGNING, MOVING
+// Animation State Machine
+let animState = 'IDLE'; // IDLE -> ALIGNING -> MOVING -> IDLE
 let animProgress = 0;
 let animDuration = 0;
 let startPos = new THREE.Vector3();
 let endPos = new THREE.Vector3();
 let startQuat = new THREE.Quaternion();
 let endQuat = new THREE.Quaternion();
-let targetQuat = new THREE.Quaternion(); // For alignment phase
+let alignQuat = new THREE.Quaternion(); // Target rotation for alignment phase
 
 // Clock
 let clock = new THREE.Clock();
@@ -81,7 +81,6 @@ const defaultSettings = {
 // ============ INIT & SETUP ============
 async function init() {
   try {
-    updateLoadingStatus('Setting up...');
     setupScene();
     setupCamera();
     setupRenderer();
@@ -92,7 +91,7 @@ async function init() {
     await loadLogo();
     setupPlexus();
     setupEventListeners();
-    updateLoadingStatus('Ready!');
+    
     setTimeout(() => {
       document.getElementById('loader').classList.add('hidden');
       setTimeout(() => document.getElementById('welcome-overlay').classList.add('hidden'), 3000);
@@ -189,7 +188,6 @@ function updatePlexus(dt) {
     if(p.position.distanceTo(new THREE.Vector3(-7.9, 4.9, 3.5)) > 10) p.userData.vel.multiplyScalar(-1);
     p.material.opacity += ((isHov ? 0.8 : 0.3) - p.material.opacity) * dt * 2;
   });
-  // lines update simplified for performance
 }
 
 // ============ HOVER ============
@@ -214,28 +212,29 @@ window.playPath = function(id) {
   const target = paths[id];
   if(!target) return;
 
-  // UI
   document.getElementById('button-group').classList.add('hidden');
   document.querySelectorAll('.glass-btn').forEach((b, i) => b.classList.toggle('active', i+1 === id));
 
-  // 1. Setup Alignment Phase
+  // 1. Setup Data
   startPos.copy(camera.position);
-  camera.getWorldQuaternion(startQuat);
-  
-  // Calculate direction to end point
   endPos.set(target.x, target.y, target.z);
-  const dir = new THREE.Vector3().subVectors(endPos, startPos).normalize();
   
-  // Create a LookTarget slightly in front of camera in the direction of travel
-  const lookTarget = startPos.clone().add(dir);
-  const dummy = new THREE.Object3D();
-  dummy.position.copy(startPos);
-  dummy.lookAt(lookTarget);
-  targetQuat.setFromRotationMatrix(dummy.matrixWorld);
+  // 2. Calculate Alignment Rotation
+  // We need the camera to face the direction of the endPos
+  const dirToEnd = new THREE.Vector3().subVectors(endPos, startPos).normalize();
+  const dummyAlign = new THREE.Object3D();
+  dummyAlign.position.copy(startPos);
+  // Look towards the end position
+  dummyAlign.lookAt(endPos); 
+  alignQuat.setFromRotationMatrix(dummyAlign.matrixWorld);
+  
+  // Capture current rotation
+  camera.getWorldQuaternion(startQuat);
 
+  // 3. Start Alignment Phase
   animState = 'ALIGNING';
   animProgress = 0;
-  animDuration = 0.8; // 0.8 seconds to turn in place
+  animDuration = 0.7; // Time to turn in place
 }
 
 window.resetCamera = function() {
@@ -246,7 +245,7 @@ window.resetCamera = function() {
   camera.getWorldQuaternion(startQuat);
   endPos.set(startPosition.x, startPosition.y, startPosition.z);
 
-  // Calculate exact end rotation
+  // Target Rotation
   const h = startPosition.lookHorizontal; const v = startPosition.lookVertical;
   const dir = new THREE.Vector3(Math.sin(h) * Math.cos(v), Math.sin(v), Math.cos(h) * Math.cos(v));
   const dummy = new THREE.Object3D();
@@ -254,7 +253,7 @@ window.resetCamera = function() {
   dummy.lookAt(dummy.position.clone().add(dir));
   endQuat.setFromRotationMatrix(dummy.matrixWorld);
 
-  // Skip aligning for return, just move
+  // Direct Move for Return (Skip alignment to avoid confusion)
   animState = 'MOVING';
   animProgress = 0;
   animDuration = 12.0;
@@ -268,30 +267,33 @@ function updateAnimation(dt) {
   if(animState === 'ALIGNING') {
     // Smoothly rotate to face movement direction
     if(animProgress >= 1.0) {
-      camera.quaternion.copy(targetQuat);
+      camera.quaternion.copy(alignQuat);
+      
+      // Alignment done, Setup MOVING phase
       animState = 'MOVING';
       animProgress = 0;
-      animDuration = 10.0; // 10 seconds to move
+      animDuration = 10.0;
       
-      // Setup Movement Phase
-      camera.getWorldQuaternion(startQuat); // Start rot is current rot
+      // Update start rotation to the aligned rotation
+      startQuat.copy(alignQuat);
       
-      // Target Rotation: Look at Logo from End Position
-      const dummy = new THREE.Object3D();
-      dummy.position.copy(endPos);
-      dummy.lookAt(logo ? logo.position : new THREE.Vector3(0,0,0));
-      endQuat.setFromRotationMatrix(dummy.matrixWorld);
+      // Calculate final rotation (Looking at Logo from end point)
+      const dummyEnd = new THREE.Object3D();
+      dummyEnd.position.copy(endPos);
+      dummyEnd.lookAt(logo ? logo.position : new THREE.Vector3(0,0,0));
+      endQuat.setFromRotationMatrix(dummyEnd.matrixWorld);
     } else {
       const e = easeInOutCubic(animProgress);
-      camera.quaternion.slerpQuaternions(startQuat, targetQuat, e);
+      camera.quaternion.slerpQuaternions(startQuat, alignQuat, e);
     }
   } 
-  else if(animState === 'MOVING') {
+  else if (animState === 'MOVING') {
     if(animProgress >= 1.0) {
       animProgress = 1.0;
       animState = 'IDLE';
       camera.position.copy(endPos);
       
+      // UI Logic
       const dist = camera.position.distanceTo(new THREE.Vector3(startPosition.x, startPosition.y, startPosition.z));
       if(dist < 0.5) document.getElementById('button-group').classList.remove('hidden');
       else document.getElementById('backBtn').classList.add('show');
