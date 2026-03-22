@@ -7,6 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 // ============ GLOBALS ============
 let scene, camera, renderer, composer;
 let mountains = null, logo = null;
+let mountainMaterials = []; // To store materials for hover effect
 let plexusGroup, plexusPoints = [], plexusLines;
 let clock = new THREE.Clock();
 
@@ -26,7 +27,11 @@ let mouse = new THREE.Vector2();
 
 // Settings
 const settings = {
-  mountains: { pos: new THREE.Vector3(-7.9, 4.9, 3.5), scale: 30 },
+  mountains: { 
+    pos: new THREE.Vector3(-7.9, 0, 3.5), // Lowered Y so it sits on ground
+    scale: 20,                           // Adjusted scale
+    rotY: 0                              // Reset rotation to fix "inverted" issue
+  },
   logo: { 
     pos: new THREE.Vector3(-0.6, 2.0, 8.2), 
     scale: 0.8, 
@@ -35,9 +40,9 @@ const settings = {
   camera: {
     start: { pos: new THREE.Vector3(-0.51, 2.14, 10.47), lookAt: new THREE.Vector3(-0.6, 2.0, 8.2) },
     paths: {
-      1: { pos: new THREE.Vector3(-2.77, 2.64, 1.57), lookAt: new THREE.Vector3(-7.9, 4.9, 3.5) },
+      1: { pos: new THREE.Vector3(-2.77, 2.64, 1.57), lookAt: new THREE.Vector3(-7.9, 0, 3.5) },
       2: { pos: new THREE.Vector3(-0.66, 2.14, 10.35), lookAt: new THREE.Vector3(-0.6, 2.0, 8.2) },
-      3: { pos: new THREE.Vector3(-5.87, 2.14, 13.47), lookAt: new THREE.Vector3(-7.9, 4.9, 3.5) },
+      3: { pos: new THREE.Vector3(-5.87, 2.14, 13.47), lookAt: new THREE.Vector3(-7.9, 0, 3.5) },
       4: { pos: new THREE.Vector3(-0.61, 5.15, -7.06), lookAt: new THREE.Vector3(-0.6, 2.0, 8.2) }
     }
   }
@@ -49,11 +54,10 @@ async function init() {
   setupCamera();
   setupLights();
   
-  // Try to load models, but catch errors so the app doesn't freeze
   try {
     await loadModels();
   } catch (e) {
-    console.error("Model loading failed, using fallback cube.", e);
+    console.error("Model loading failed", e);
     createFallbackScene();
   }
   
@@ -62,44 +66,32 @@ async function init() {
   setupPostProcessing();
   setupEvents();
   
-  // 1. Hide Loader
-  const loader = document.getElementById('loader');
-  if(loader) loader.classList.add('hidden');
+  document.getElementById('loader').classList.add('hidden');
   
-  // 2. Force Hide Welcome Overlay after 4 seconds (safety measure)
   setTimeout(() => {
     const welcome = document.getElementById('welcome-overlay');
     if(welcome) welcome.classList.add('hidden');
-  }, 4000);
+  }, 4500);
   
-  // Start render loop
   animate();
 }
 
 function createFallbackScene() {
-  // If models fail, create a simple cube so you know the code works
   const geo = new THREE.BoxGeometry(2, 2, 2);
-  const mat = new THREE.MeshStandardMaterial({ color: 0x00eaff, metalness: 0.8, roughness: 0.2 });
+  const mat = new THREE.MeshStandardMaterial({ color: 0x00eaff });
   logo = new THREE.Mesh(geo, mat);
   logo.position.copy(settings.logo.pos);
   scene.add(logo);
-  
-  const geoM = new THREE.BoxGeometry(10, 10, 10);
-  const matM = new THREE.MeshStandardMaterial({ color: 0xffffff });
-  mountains = new THREE.Mesh(geoM, matM);
-  mountains.position.copy(settings.mountains.pos);
-  scene.add(mountains);
 }
 
 function setupScene() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xffffff);
-  scene.fog = new THREE.FogExp2(0xffffff, 0.01);
+  scene.fog = new THREE.FogExp2(0xffffff, 0.008); // Reduced fog density
 }
 
 function setupCamera() {
   camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-  // Set initial position
   camera.position.copy(settings.camera.start.pos);
   camera.lookAt(settings.camera.start.lookAt);
 }
@@ -134,11 +126,21 @@ async function loadModels() {
   try {
     const gltf = await loader.loadAsync('mountains.glb');
     mountains = gltf.scene;
+    
+    // --- FIX: Apply settings to fix position and inversion ---
     mountains.position.copy(settings.mountains.pos);
     mountains.scale.setScalar(settings.mountains.scale);
-    mountains.rotation.y = 133 * (Math.PI/180);
+    mountains.rotation.y = settings.mountains.rotY; 
+    
+    // Store materials for hover effect
+    mountains.traverse((child) => {
+      if (child.isMesh) {
+        child.material = child.material.clone(); // Clone to avoid affecting other meshes
+        mountainMaterials.push(child.material);
+      }
+    });
+    
     scene.add(mountains);
-    console.log("Mountains loaded");
   } catch(e) { console.warn("Mountain model error", e); }
 
   // Load Logo
@@ -149,7 +151,6 @@ async function loadModels() {
     logo.scale.setScalar(settings.logo.scale);
     logo.rotation.copy(settings.logo.rot);
     scene.add(logo);
-    console.log("Logo loaded");
   } catch(e) { console.warn("Logo model error", e); }
 }
 
@@ -211,7 +212,6 @@ function updatePlexus() {
 window.playPath = function(id) {
   if(isAnimating || !settings.camera.paths[id]) return;
   
-  // UI Updates
   document.querySelectorAll('.glass-btn').forEach(b => b.classList.remove('active'));
   const btn = document.querySelector(`.btn-path${id} .glass-btn`);
   if(btn) btn.classList.add('active');
@@ -267,7 +267,8 @@ function updateAnimation() {
   
   if(t >= 1.0) {
     isAnimating = false;
-    if(!animEndPos.equals(settings.camera.start.pos)) {
+    // Show back button only if we are not at the start position
+    if(settings.camera.start.pos.distanceTo(animEndPos) > 0.1) {
        document.getElementById('backBtn').classList.add('show');
     }
   }
@@ -275,6 +276,26 @@ function updateAnimation() {
 
 function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+// ============ HOVER EFFECTS ============
+function updateHoverEffects() {
+  // 1. Check raycast
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = logo ? raycaster.intersectObject(logo, true) : [];
+  isHovering = intersects.length > 0;
+  document.body.style.cursor = isHovering ? 'pointer' : 'default';
+
+  // 2. Update Mountain Colors (Turn blue on hover)
+  mountainMaterials.forEach(mat => {
+    if (isHovering) {
+      // Target Blue
+      mat.color.lerp(new THREE.Color(0x4da6ff), 0.1);
+    } else {
+      // Target White
+      mat.color.lerp(new THREE.Color(0xffffff), 0.05);
+    }
+  });
 }
 
 // ============ EVENTS ============
@@ -289,13 +310,6 @@ function setupEvents() {
   window.addEventListener('mousemove', (e) => {
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-    
-    raycaster.setFromCamera(mouse, camera);
-    if(logo) {
-      const intersects = raycaster.intersectObject(logo, true);
-      isHovering = intersects.length > 0;
-      document.body.style.cursor = isHovering ? 'pointer' : 'default';
-    }
   });
   
   window.addEventListener('keydown', (e) => {
@@ -307,12 +321,14 @@ function setupEvents() {
 function animate() {
   requestAnimationFrame(animate);
   
+  // Logo Floating Animation
   if(logo) {
     logo.position.y = settings.logo.pos.y + Math.sin(clock.getElapsedTime() * 0.5) * 0.05;
   }
   
   updatePlexus();
   updateAnimation();
+  updateHoverEffects(); // Added hover update here
   
   composer.render();
 }
