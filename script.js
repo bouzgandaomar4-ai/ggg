@@ -22,11 +22,19 @@ let plexusGroup = null;
 let plexusPoints = [];
 let plexusLines = null;
 
-// Camera animation
+// Animation State
 let isAnimating = false;
-let animationComplete = false;
+let animProgress = 0;
+let animDuration = 0;
+let startPos = new THREE.Vector3();
+let endPos = new THREE.Vector3();
+let startQuat = new THREE.Quaternion();
+let endQuat = new THREE.Quaternion();
 
-// Starting position (From your code)
+// Clock for smooth animation
+let clock = new THREE.Clock();
+
+// Starting position
 const startPosition = {
   x: -0.51,
   y: 2.14,
@@ -35,7 +43,7 @@ const startPosition = {
   lookVertical: -5.3 * (Math.PI / 180)
 };
 
-// Paths (From your code)
+// Paths
 const paths = {
   1: { x: -2.77, y: 2.64, z: 1.57 },
   2: { x: -0.66, y: 2.14, z: 10.35 },
@@ -43,12 +51,11 @@ const paths = {
   4: { x: -0.61, y: 5.15, z: -7.06 }
 };
 
-// Default Settings (From your code - CRITICAL FOR CORRECT PLACEMENT)
 const defaultSettings = {
   mountains: {
-    x: -7.9, y: 4.9, z: 3.5, // Y is 4.9 here, not 0
+    x: -7.9, y: 4.9, z: 3.5,
     scaleX: 0.8, scaleY: 1.9, scaleZ: 1.0,
-    uniformScale: 30,         // Scale is 30
+    uniformScale: 30,
     rotX: 0, rotY: 133, rotZ: 0
   },
   logo: {
@@ -130,6 +137,7 @@ function setupCamera() {
 function resetCameraToStart() {
   camera.position.set(startPosition.x, startPosition.y, startPosition.z);
   
+  // Calculate exact look direction
   const h = startPosition.lookHorizontal;
   const v = startPosition.lookVertical;
   
@@ -140,11 +148,6 @@ function resetCameraToStart() {
   
   const target = new THREE.Vector3().copy(camera.position).add(direction);
   camera.lookAt(target);
-  
-  const backBtn = document.getElementById('backBtn');
-  if (backBtn) {
-    backBtn.classList.remove('show');
-  }
 }
 
 function setupRenderer() {
@@ -210,7 +213,6 @@ async function loadMountains() {
         }
       });
       
-      // APPLYING EXACT SETTINGS
       const s = defaultSettings.mountains;
       mountains.position.set(s.x, s.y, s.z);
       mountains.scale.set(s.uniformScale * s.scaleX, s.uniformScale * s.scaleY, s.uniformScale * s.scaleZ);
@@ -423,102 +425,94 @@ window.playPath = function(pathNumber) {
   const targetPos = paths[pathNumber];
   if (!targetPos) return;
   
+  // UI: Hide Buttons, Show Active
+  document.getElementById('button-group').classList.add('hidden');
   document.querySelectorAll('.glass-btn').forEach((btn, index) => {
     btn.classList.toggle('active', index + 1 === pathNumber);
   });
   
   isAnimating = true;
-  animationComplete = false;
+  animProgress = 0;
+  animDuration = 10.0; // 10 seconds
+
+  // Store Start
+  startPos.copy(camera.position);
+  camera.getWorldQuaternion(startQuat);
+
+  // Store End Position
+  endPos.set(targetPos.x, targetPos.y, targetPos.z);
+
+  // Calculate End Rotation (Look at Logo)
+  const dummyCam = new THREE.Object3D();
+  dummyCam.position.copy(endPos);
+  dummyCam.lookAt(logo.position);
+  endQuat.setFromRotationMatrix(dummyCam.matrixWorld);
+}
+
+window.resetCamera = function() {
+  if (isAnimating) return;
   
-  const startPos = camera.position.clone();
-  const endPos = new THREE.Vector3(targetPos.x, targetPos.y, targetPos.z);
+  document.getElementById('backBtn').classList.remove('show');
   
-  const startTime = performance.now();
-  const duration = 10000; // 10 seconds smooth movement
+  isAnimating = true;
+  animProgress = 0;
+  animDuration = 12.0; // 12 seconds
+
+  // Store Start
+  startPos.copy(camera.position);
+  camera.getWorldQuaternion(startQuat);
+
+  // Store End Position
+  endPos.set(startPosition.x, startPosition.y, startPosition.z);
+
+  // Calculate End Rotation (Look at calculated start target)
+  const h = startPosition.lookHorizontal;
+  const v = startPosition.lookVertical;
+  const direction = new THREE.Vector3();
+  direction.x = Math.sin(h) * Math.cos(v);
+  direction.y = Math.sin(v);
+  direction.z = Math.cos(h) * Math.cos(v);
   
-  function animatePath() {
-    if (!isAnimating) return;
+  const dummyCam = new THREE.Object3D();
+  dummyCam.position.copy(endPos);
+  // Look in the specific direction calculated from angles
+  dummyCam.lookAt(dummyCam.position.clone().add(direction)); 
+  endQuat.setFromRotationMatrix(dummyCam.matrixWorld);
+}
+
+function updateAnimation(deltaTime) {
+  if (!isAnimating) return;
+
+  // Increment progress
+  animProgress += deltaTime / animDuration;
+
+  if (animProgress >= 1.0) {
+    animProgress = 1.0;
+    isAnimating = false;
     
-    const elapsed = performance.now() - startTime;
-    const progress = Math.min(elapsed / duration, 1);
+    // Check if we are back at home to show buttons
+    const distToStart = camera.position.distanceTo(new THREE.Vector3(startPosition.x, startPosition.y, startPosition.z));
     
-    // Smooth easing
-    const easedProgress = easeInOutCubic(progress);
-    
-    camera.position.lerpVectors(startPos, endPos, easedProgress);
-    camera.lookAt(logo.position);
-    
-    if (progress < 1) {
-      requestAnimationFrame(animatePath);
+    if (distToStart < 0.5) {
+       document.getElementById('button-group').classList.remove('hidden');
     } else {
-      isAnimating = false;
-      animationComplete = true;
-      setTimeout(() => {
-        const backBtn = document.getElementById('backBtn');
-        if (backBtn) {
-          backBtn.classList.add('show');
-        }
-        document.querySelectorAll('.glass-btn').forEach(btn => btn.classList.remove('active'));
-      }, 500);
+       document.getElementById('backBtn').classList.add('show');
     }
   }
-  
-  animatePath();
-};
+
+  // Easing
+  const easedProgress = easeInOutCubic(animProgress);
+
+  // Lerp Position
+  camera.position.lerpVectors(startPos, endPos, easedProgress);
+
+  // Slerp Rotation (Smooth Look)
+  camera.quaternion.slerpQuaternions(startQuat, endQuat, easedProgress);
+}
 
 function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
-
-// ============ SMOOTH RETURN TO START ============
-window.resetCamera = function() {
-  if (isAnimating) return;
-  
-  isAnimating = true;
-  animationComplete = false;
-  
-  const backBtn = document.getElementById('backBtn');
-  if (backBtn) {
-    backBtn.classList.remove('show');
-  }
-  
-  const startPos = camera.position.clone();
-  const endPos = new THREE.Vector3(startPosition.x, startPosition.y, startPosition.z);
-  
-  const startTime = performance.now();
-  const duration = 12000; // 12 seconds smooth return
-  
-  function animateReturn() {
-    if (!isAnimating) return;
-    
-    const elapsed = performance.now() - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    
-    const easedProgress = easeInOutCubic(progress);
-    
-    camera.position.lerpVectors(startPos, endPos, easedProgress);
-    
-    // Maintain proper look direction during return
-    const h = startPosition.lookHorizontal;
-    const v = startPosition.lookVertical;
-    const direction = new THREE.Vector3();
-    direction.x = Math.sin(h) * Math.cos(v);
-    direction.y = Math.sin(v);
-    direction.z = Math.cos(h) * Math.cos(v);
-    const target = new THREE.Vector3().copy(camera.position).add(direction);
-    camera.lookAt(target);
-    
-    if (progress < 1) {
-      requestAnimationFrame(animateReturn);
-    } else {
-      isAnimating = false;
-      animationComplete = true;
-      document.querySelectorAll('.glass-btn').forEach(btn => btn.classList.remove('active'));
-    }
-  }
-  
-  animateReturn();
-};
 
 function updateHoverEffects(deltaTime) {
   const speed = 2.0;
@@ -589,19 +583,20 @@ function checkLogoHover() {
   document.body.style.cursor = isHoveringLogo ? 'pointer' : 'default';
 }
 
-let lastTime = 0;
-function animate(currentTime = 0) {
+function animate() {
   requestAnimationFrame(animate);
   
-  const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1);
-  lastTime = currentTime;
+  // Delta Time is KING for smooth animation
+  const deltaTime = Math.min(clock.getDelta(), 0.1); 
+  const elapsedTime = clock.getElapsedTime();
   
   if (logo) {
-    logo.position.y = defaultSettings.logo.y + Math.sin(currentTime * 0.0008) * 0.05;
+    logo.position.y = defaultSettings.logo.y + Math.sin(elapsedTime * 0.8) * 0.05;
   }
   
+  updateAnimation(deltaTime);
   updateHoverEffects(deltaTime);
-  updatePlexus(currentTime, deltaTime);
+  updatePlexus(elapsedTime * 1000, deltaTime);
   
   composer.render();
 }
