@@ -25,7 +25,7 @@ let isHovering = false;
 let raycaster = new THREE.Raycaster();
 let mouse = new THREE.Vector2();
 
-// Settings
+// ============ SETTINGS ============
 const settings = {
   mountains: { 
     pos: new THREE.Vector3(-7.9, 0, 3.5),
@@ -37,9 +37,9 @@ const settings = {
     scale: 0.8
   },
   camera: {
+    // EXACT Home Position provided
     start: { 
-      pos: new THREE.Vector3(-0.51, 2.14, 10.47), 
-      lookAt: new THREE.Vector3(-0.6, 2.0, 8.2) 
+      pos: new THREE.Vector3(-0.51, 2.14, 10.47)
     },
     paths: {
       1: { pos: new THREE.Vector3(-2.77, 2.64, 1.57), lookAt: new THREE.Vector3(-7.9, 0, 3.5) },
@@ -50,6 +50,23 @@ const settings = {
   }
 };
 
+// CALCULATE START LOOK TARGET
+// Horizontal: 179.4° (Almost behind, looking at logo)
+// Vertical: -5.3° (Looking slightly down)
+const hRad = 179.4 * (Math.PI / 180);
+const vRad = -5.3 * (Math.PI / 180);
+
+// Calculate Direction Vector
+const dir = new THREE.Vector3(
+  Math.sin(hRad) * Math.cos(vRad),
+  Math.sin(vRad),
+  Math.cos(hRad) * Math.cos(vRad)
+);
+
+// Target = Position + Direction
+settings.camera.start.lookAt = new THREE.Vector3().addVectors(settings.camera.start.pos, dir);
+
+
 // ============ INIT ============
 async function init() {
   setupScene();
@@ -59,7 +76,7 @@ async function init() {
   try {
     await loadModels();
   } catch (e) {
-    console.error("Model loading failed", e);
+    console.error(e);
     createFallbackScene();
   }
   
@@ -94,8 +111,11 @@ function setupScene() {
 
 function setupCamera() {
   camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-  // Exact Start Position
+  
+  // Apply exact start position
   camera.position.copy(settings.camera.start.pos);
+  
+  // Apply calculated look direction
   camera.lookAt(settings.camera.start.lookAt);
 }
 
@@ -212,9 +232,10 @@ window.playPath = function(id) {
   
   // UI Updates
   document.getElementById('backBtn').classList.remove('show');
-  document.getElementById('button-group').classList.add('hidden'); // Hide buttons
+  document.getElementById('button-group').classList.add('hidden');
 }
 
+// FIXED: Logic to return to specific home coordinates
 window.resetCamera = function() {
   if(isAnimating) return;
   
@@ -223,10 +244,12 @@ window.resetCamera = function() {
   animDuration = 12.0;
   
   animStartPos.copy(camera.position);
+  // Return to Calculated Start Position
   animEndPos.copy(settings.camera.start.pos);
   
   camera.getWorldQuaternion(animStartQuat);
   
+  // Calculate Return Rotation using the SAME MATH as init
   const dummyCam = new THREE.Object3D();
   dummyCam.position.copy(animEndPos);
   dummyCam.lookAt(settings.camera.start.lookAt);
@@ -248,14 +271,16 @@ function updateAnimation() {
   
   if(t >= 1.0) {
     isAnimating = false;
+    
+    // Check distance to the Home Position
     const distToStart = camera.position.distanceTo(settings.camera.start.pos);
     
-    // If we are at an endpoint
-    if(distToStart > 1.0) {
-       document.getElementById('backBtn').classList.add('show');
-    } else {
-       // We are at home, show buttons
+    // If we are close to home (arrived)
+    if(distToStart < 0.5) {
        document.getElementById('button-group').classList.remove('hidden');
+    } else {
+       // If we are at an endpoint
+       document.getElementById('backBtn').classList.add('show');
     }
   }
 }
@@ -268,14 +293,12 @@ function easeInOutCubic(t) {
 function updateInteractions() {
   raycaster.setFromCamera(mouse, camera);
   
-  // Check Logo Hover
   if(logo) {
     const intersects = raycaster.intersectObject(logo, true);
     isHovering = intersects.length > 0;
     document.body.style.cursor = isHovering ? 'pointer' : 'default';
   }
 
-  // Soft Blue Hover Effect
   const targetColor = new THREE.Color(0xaaddff);
   const whiteColor = new THREE.Color(0xffffff);
 
@@ -323,9 +346,7 @@ function setupEvents() {
 function animate() {
   requestAnimationFrame(animate);
   
-  // Logo Float
   if(logo) {
-    // Apply floating relative to base Y position
     logo.position.y = settings.logo.pos.y + Math.sin(clock.getElapsedTime() * 0.5) * 0.05;
   }
   
