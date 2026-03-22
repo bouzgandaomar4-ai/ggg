@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offensive Bloom - Ice Mountain 3D</title>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #ffffff;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    #loader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #0a0e17 0%, #1a1f2e 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      transition: opacity 1s ease, visibility 1s ease;
+    }
+    #loader.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .loader-content { text-align: center; }
+    .ascii {
+      font-family: 'Courier New', monospace;
+      font-size: 32px;
+      font-weight: bold;
+      color: #00d4ff;
+      text-shadow: 0 0 20px rgba(0, 212, 255, 0.8);
+      animation: asciiAnim 2s infinite linear;
+      margin-bottom: 20px;
+    }
+    @keyframes asciiAnim {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.05); }
+    }
+    .loading-text {
+      font-size: 16px;
+      color: #8892b0;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    #loading-status {
+      font-size: 12px;
+      color: #00d4ff;
+      opacity: 0.7;
+    }
+    #canvas-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    
+    /* ========== WELCOME ANIMATION WITH TYPEWRITER EFFECT ========== */
+    #welcome-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 10001;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 1;
+      transition: opacity 1.5s ease;
+    }
+    
+    #welcome-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    .welcome-container {
+      text-align: center;
+    }
+    
+    .welcome-text {
+      font-family: 'Courier New', monospace;
+      font-size: 48px;
+      font-weight: bold;
+      color: #00eaff;
+      text-align: center;
+      letter-spacing: 8px;
+      overflow: hidden;
+      white-space: nowrap;
+      border-right: 3px solid #00eaff;
+      animation: 
+        typing 3.5s steps(30, end),
+        blink-caret 0.75s step-end infinite,
+        fadeOut 1s ease 5s forwards;
+      text-shadow: 0 0 30px rgba(0, 234, 255, 1);
+    }
+    
+    @keyframes typing {
+      from { width: 0 }
+      to { width: 100% }
+    }
+    
+    @keyframes blink-caret {
+      from, to { border-color: transparent }
+      50% { border-color: #00eaff; }
+    }
+    
+    @keyframes fadeOut {
+      0% { opacity: 1; }
+      70% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    
+    .welcome-subtitle {
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      color: rgba(0, 234, 255, 0.6);
+      letter-spacing: 4px;
+      margin-top: 30px;
+      opacity: 0;
+      animation: fadeInOut 4s ease-in-out infinite;
+      animation-delay: 1s;
+    }
+    
+    @keyframes fadeInOut {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+    
+    /* ========== 3D BUILD REVEAL OVERLAY ========== */
+    #build-reveal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      z-index: 10000;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+    
+    #build-reveal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    #build-reveal-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+    
+    /* ========== GLASS BUTTONS - CLOSER TO LOGO ========== */
+    .path-buttons {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 100;
+      pointer-events: none;
+      width: 400px;
+      height: 250px;
+    }
+    
+    .path-node {
+      position: absolute;
+      pointer-events: auto;
+    }
+    
+    /* Buttons closer to logo */
+    .btn-path1 { top: 15%; left: -120px; }
+    .btn-path2 { top: 65%; left: -100px; }
+    .btn-path3 { top: 15%; right: -100px; }
+    .btn-path4 { top: 65%; right: -120px; }
+    
+    .path-node svg {
+      position: absolute;
+      width: 150px;
+      height: 120px;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+    
+    .line {
+      stroke: #00eaff;
+      stroke-width: 1.5;
+      filter: drop-shadow(0 0 6px rgba(0, 234, 255, 0.8));
+      stroke-dasharray: 5, 5;
+      animation: dash 20s linear infinite;
+    }
+    
+    @keyframes dash {
+      to { stroke-dashoffset: 100; }
+    }
+    
+    .dot {
+      fill: #00eaff;
+      filter: drop-shadow(0 0 8px rgba(0, 234, 255, 1));
+    }
+    
+    .glass-btn {
+      position: relative;
+      padding: 10px 20px;
+      font-size: 11px;
+      color: #00eaff;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      border: 1px solid rgba(0, 234, 255, 0.4);
+      border-radius: 12px;
+      box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.2),
+        0 0 20px rgba(0, 234, 255, 0.2),
+        inset 0 0 20px rgba(0, 234, 255, 0.08);
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      overflow: hidden;
+    }
+    
+    .glass-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(0, 234, 255, 0.2), transparent);
+      transition: left 0.7s;
+    }
+    
+    .glass-btn:hover::before {
+      left: 100%;
+    }
+    
+    .glass-btn:hover {
+      background: rgba(0, 234, 255, 0.12);
+      transform: translateY(-3px) scale(1.05);
+      box-shadow: 
+        0 12px 40px rgba(0, 0, 0, 0.3),
+        0 0 40px rgba(0, 234, 255, 0.6),
+        inset 0 0 30px rgba(0, 234, 255, 0.2);
+      border-color: rgba(0, 234, 255, 0.7);
+    }
+    
+    .glass-btn:active {
+      transform: translateY(-1px) scale(1.02);
+    }
+    
+    .glass-btn.active {
+      background: rgba(0, 234, 255, 0.18);
+      box-shadow: 
+        0 0 50px rgba(0, 234, 255, 1),
+        inset 0 0 35px rgba(0, 234, 255, 0.3);
+      border-color: rgba(0, 234, 255, 0.9);
+    }
+    
+    .back-btn {
+      position: fixed;
+      bottom: 60px;
+      right: 20px;
+      padding: 12px 24px;
+      font-size: 12px;
+      color: #00eaff;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(0, 234, 255, 0.5);
+      border-radius: 12px;
+      box-shadow: 
+        0 0 30px rgba(0, 234, 255, 0.5),
+        inset 0 0 20px rgba(0, 234, 255, 0.15);
+      transition: all 0.4s ease;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      display: none;
+      z-index: 200;
+    }
+    
+    .back-btn.show {
+      display: block;
+      animation: slideIn 0.5s ease;
+    }
+    
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    
+    .back-btn:hover {
+      background: rgba(0, 234, 255, 0.15);
+      transform: translateY(-2px);
+      box-shadow: 
+        0 0 40px rgba(0, 234, 255, 0.8),
+        inset 0 0 25px rgba(0, 234, 255, 0.2);
+    }
+    
+    /* Slogan in LEFT corner */
+    .slogan {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      text-align: left;
+      color: rgba(0, 234, 255, 0.7);
+      font-size: 11px;
+      letter-spacing: 2px;
+      font-weight: 300;
+      z-index: 100;
+      text-shadow: 0 0 10px rgba(0, 234, 255, 0.5);
+      opacity: 0.8;
+      pointer-events: none;
+    }
+    
+    .slogan-line {
+      margin: 3px 0;
+      font-style: italic;
+    }
+    
+    .keyboard-hint {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 10px 16px;
+      border-radius: 8px;
+      color: #8892b0;
+      font-size: 11px;
+      z-index: 1000;
+      backdrop-filter: blur(8px);
+    }
+  </style>
+</head>
+<body>
+  <div id="loader">
+    <div class="loader-content">
+      <div class="ascii">---===+++===---</div>
+      <div class="loading-text">Loading...</div>
+      <div id="loading-status">Initializing...</div>
+    </div>
+  </div>
+  
+  <!-- Welcome Animation with Typewriter Effect -->
+  <div id="welcome-overlay">
+    <div class="welcome-container">
+      <div class="welcome-text">WELCOME TO OFFENSIVE BLOOM</div>
+      <div class="welcome-subtitle">SECURE ELEMENTS INITIALIZING...</div>
+    </div>
+  </div>
+  
+  <!-- 3D Build Reveal Overlay -->
+  <div id="build-reveal-overlay"></div>
+  
+  <div id="canvas-container"></div>
+  
+  <!-- Glass Path Buttons - Closer to Logo -->
+  <div class="path-buttons">
+    <div class="path-node btn-path1">
+      <svg>
+        <line x1="130" y1="70" x2="50" y2="40" class="line"/>
+        <circle cx="50" cy="40" r="4" class="dot"/>
+      </svg>
+      <button class="glass-btn" onmouseenter="onHoverStart()" onmouseleave="onHoverEnd()" onclick="playPath(1)">Path 1</button>
+    </div>
+    
+    <div class="path-node btn-path2">
+      <svg>
+        <line x1="120" y1="10" x2="40" y2="50" class="line"/>
+        <circle cx="40" cy="50" r="4" class="dot"/>
+      </svg>
+      <button class="glass-btn" onmouseenter="onHoverStart()" onmouseleave="onHoverEnd()" onclick="playPath(2)">Path 2</button>
+    </div>
+    
+    <div class="path-node btn-path3">
+      <svg>
+        <line x1="20" y1="70" x2="100" y2="40" class="line"/>
+        <circle cx="100" cy="40" r="4" class="dot"/>
+      </svg>
+      <button class="glass-btn" onmouseenter="onHoverStart()" onmouseleave="onHoverEnd()" onclick="playPath(3)">Path 3</button>
+    </div>
+    
+    <div class="path-node btn-path4">
+      <svg>
+        <line x1="30" y1="10" x2="110" y2="50" class="line"/>
+        <circle cx="110" cy="50" r="4" class="dot"/>
+      </svg>
+      <button class="glass-btn" onmouseenter="onHoverStart()" onmouseleave="onHoverEnd()" onclick="playPath(4)">Path 4</button>
+    </div>
+  </div>
+  
+  <button class="back-btn" id="backBtn" onclick="resetCamera()">← Back to Start</button>
+  
+  <!-- Slogan in LEFT corner -->
+  <div class="slogan">
+    <div class="slogan-line">"We find and build what others can't.</div>
+    <div class="slogan-line">We break what others trust."</div>
+  </div>
+  
+  <div class="keyboard-hint">Press <kbd>R</kbd> to reset</div>
+  
+  <script type="module" src="script.js"></script>
+</body>
+</html>
