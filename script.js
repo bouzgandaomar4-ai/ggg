@@ -48,17 +48,47 @@ async function init() {
   setupScene();
   setupCamera();
   setupLights();
-  await loadModels();
+  
+  // Try to load models, but catch errors so the app doesn't freeze
+  try {
+    await loadModels();
+  } catch (e) {
+    console.error("Model loading failed, using fallback cube.", e);
+    createFallbackScene();
+  }
+  
   setupPlexus();
   setupRenderer();
   setupPostProcessing();
   setupEvents();
   
-  // Hide loader
-  document.getElementById('loader').classList.add('hidden');
+  // 1. Hide Loader
+  const loader = document.getElementById('loader');
+  if(loader) loader.classList.add('hidden');
+  
+  // 2. Force Hide Welcome Overlay after 4 seconds (safety measure)
+  setTimeout(() => {
+    const welcome = document.getElementById('welcome-overlay');
+    if(welcome) welcome.classList.add('hidden');
+  }, 4000);
   
   // Start render loop
   animate();
+}
+
+function createFallbackScene() {
+  // If models fail, create a simple cube so you know the code works
+  const geo = new THREE.BoxGeometry(2, 2, 2);
+  const mat = new THREE.MeshStandardMaterial({ color: 0x00eaff, metalness: 0.8, roughness: 0.2 });
+  logo = new THREE.Mesh(geo, mat);
+  logo.position.copy(settings.logo.pos);
+  scene.add(logo);
+  
+  const geoM = new THREE.BoxGeometry(10, 10, 10);
+  const matM = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  mountains = new THREE.Mesh(geoM, matM);
+  mountains.position.copy(settings.mountains.pos);
+  scene.add(mountains);
 }
 
 function setupScene() {
@@ -108,7 +138,8 @@ async function loadModels() {
     mountains.scale.setScalar(settings.mountains.scale);
     mountains.rotation.y = 133 * (Math.PI/180);
     scene.add(mountains);
-  } catch(e) { console.warn("Mountain model not found"); }
+    console.log("Mountains loaded");
+  } catch(e) { console.warn("Mountain model error", e); }
 
   // Load Logo
   try {
@@ -118,7 +149,8 @@ async function loadModels() {
     logo.scale.setScalar(settings.logo.scale);
     logo.rotation.copy(settings.logo.rot);
     scene.add(logo);
-  } catch(e) { console.warn("Logo model not found"); }
+    console.log("Logo loaded");
+  } catch(e) { console.warn("Logo model error", e); }
 }
 
 // ============ PLEXUS ============
@@ -127,7 +159,7 @@ function setupPlexus() {
   scene.add(plexusGroup);
   
   const geo = new THREE.BufferGeometry();
-  const positions = new Float32Array(500 * 3); // Pre-allocate
+  const positions = new Float32Array(500 * 3); 
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   
   const mat = new THREE.LineBasicMaterial({ color: 0x00eaff, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending });
@@ -154,10 +186,8 @@ function updatePlexus() {
   
   plexusPoints.forEach(p => {
     p.position.add(p.userData.velocity);
-    // Boundary check
     if(p.position.distanceTo(settings.logo.pos) > 8) p.userData.velocity.multiplyScalar(-1);
     
-    // Connect lines
     plexusPoints.forEach(p2 => {
       if(p === p2) return;
       const dist = p.position.distanceTo(p2.position);
@@ -183,26 +213,23 @@ window.playPath = function(id) {
   
   // UI Updates
   document.querySelectorAll('.glass-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector(`.btn-path${id} .glass-btn`).classList.add('active');
+  const btn = document.querySelector(`.btn-path${id} .glass-btn`);
+  if(btn) btn.classList.add('active');
   
-  // Setup Animation
   isAnimating = true;
   animStartTime = clock.getElapsedTime();
-  animDuration = 10.0; // 10 seconds
+  animDuration = 10.0;
   
   animStartPos.copy(camera.position);
   animEndPos.copy(settings.camera.paths[id].pos);
   
-  // Setup Rotation Slerp
   camera.getWorldQuaternion(animStartQuat);
   
-  // Calculate Target Quaternion
   const dummyCam = new THREE.Object3D();
   dummyCam.position.copy(animEndPos);
   dummyCam.lookAt(settings.camera.paths[id].lookAt);
   animEndQuat.setFromRotationMatrix(dummyCam.matrixWorld);
   
-  // Hide back button during anim
   document.getElementById('backBtn').classList.remove('show');
 }
 
@@ -214,7 +241,7 @@ window.resetCamera = function() {
   
   isAnimating = true;
   animStartTime = clock.getElapsedTime();
-  animDuration = 12.0; // 12 seconds return
+  animDuration = 12.0;
   
   animStartPos.copy(camera.position);
   animEndPos.copy(settings.camera.start.pos);
@@ -233,20 +260,14 @@ function updateAnimation() {
   let elapsed = clock.getElapsedTime() - animStartTime;
   let t = Math.min(elapsed / animDuration, 1.0);
   
-  // Easing
   const eased = easeInOutCubic(t);
   
-  // Lerp Position
   camera.position.lerpVectors(animStartPos, animEndPos, eased);
-  
-  // Slerp Rotation (The fix for "jumping")
   camera.quaternion.slerpQuaternions(animStartQuat, animEndQuat, eased);
   
-  // Complete
   if(t >= 1.0) {
     isAnimating = false;
-    // Show back button if we went to a path (not if we reset)
-    if(animEndPos.equals(settings.camera.start.pos) === false) {
+    if(!animEndPos.equals(settings.camera.start.pos)) {
        document.getElementById('backBtn').classList.add('show');
     }
   }
@@ -286,9 +307,6 @@ function setupEvents() {
 function animate() {
   requestAnimationFrame(animate);
   
-  const delta = clock.getDelta();
-  
-  // Hover Effects
   if(logo) {
     logo.position.y = settings.logo.pos.y + Math.sin(clock.getElapsedTime() * 0.5) * 0.05;
   }
