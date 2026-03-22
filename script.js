@@ -81,6 +81,7 @@ const defaultSettings = {
 // ============ INIT & SETUP ============
 async function init() {
   try {
+    updateLoadingStatus('Setting up...');
     setupScene();
     setupCamera();
     setupRenderer();
@@ -91,6 +92,7 @@ async function init() {
     await loadLogo();
     setupPlexus();
     setupEventListeners();
+    updateLoadingStatus('Ready!');
     
     setTimeout(() => {
       document.getElementById('loader').classList.add('hidden');
@@ -98,6 +100,12 @@ async function init() {
     }, 500);
     animate();
   } catch (error) { console.error(error); }
+}
+
+// FIXED: Added missing function
+function updateLoadingStatus(text) {
+  const el = document.getElementById('loading-status');
+  if(el) el.textContent = text;
 }
 
 function setupScene() { scene = new THREE.Scene(); scene.background = new THREE.Color(0xffffff); }
