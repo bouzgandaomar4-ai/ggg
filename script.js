@@ -8,6 +8,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 let scene, camera, renderer, composer;
 let mountains = null, logo = null;
 let mountainMaterials = [];
+let buttonGroup = null; // Group to hold 3D buttons
 let plexusGroup, plexusPoints = [], plexusLines;
 let clock = new THREE.Clock();
 
@@ -38,16 +39,9 @@ const settings = {
     rot: new THREE.Euler(0, 0, 2 * Math.PI / 180) 
   },
   camera: {
-    // EXACT START PARAMETERS PROVIDED:
-    // Position: x:-0.51, y:2.14, z:10.47
-    // Look Horizontal: 179.4°, Vertical: -5.3°
     start: { 
       pos: new THREE.Vector3(-0.51, 2.14, 10.47), 
-      lookAt: new THREE.Vector3(
-        -0.51 + Math.sin(179.4 * Math.PI / 180) * Math.cos(-5.3 * Math.PI / 180),
-        2.14 + Math.sin(-5.3 * Math.PI / 180),
-        10.47 + Math.cos(179.4 * Math.PI / 180) * Math.cos(-5.3 * Math.PI / 180)
-      )
+      lookAt: new THREE.Vector3(-0.6, 2.0, 8.2) 
     },
     paths: {
       1: { pos: new THREE.Vector3(-2.77, 2.64, 1.57), lookAt: new THREE.Vector3(-7.9, 0, 3.5) },
@@ -66,9 +60,11 @@ async function init() {
   
   try {
     await loadModels();
+    setup3DButtons(); // Create 3D buttons after model loads
   } catch (e) {
     console.error("Model loading failed", e);
     createFallbackScene();
+    setup3DButtons();
   }
   
   setupPlexus();
@@ -102,9 +98,7 @@ function setupScene() {
 
 function setupCamera() {
   camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-  // Set exact start position
   camera.position.copy(settings.camera.start.pos);
-  // Look at calculated target
   camera.lookAt(settings.camera.start.lookAt);
 }
 
@@ -116,7 +110,7 @@ function setupLights() {
 }
 
 function setupRenderer() {
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+  renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -134,27 +128,21 @@ function setupPostProcessing() {
 async function loadModels() {
   const loader = new GLTFLoader();
   
-  // Load Mountains
   try {
     const gltf = await loader.loadAsync('mountains.glb');
     mountains = gltf.scene;
-    
     mountains.position.copy(settings.mountains.pos);
     mountains.scale.setScalar(settings.mountains.scale);
     mountains.rotation.y = settings.mountains.rotY; 
-    
-    // Store materials for soft hover effect
     mountains.traverse((child) => {
       if (child.isMesh) {
         child.material = child.material.clone();
         mountainMaterials.push(child.material);
       }
     });
-    
     scene.add(mountains);
   } catch(e) { console.warn("Mountain model error", e); }
 
-  // Load Logo
   try {
     const gltf = await loader.loadAsync('white_mesh.glb');
     logo = gltf.scene;
@@ -163,6 +151,88 @@ async function loadModels() {
     logo.rotation.copy(settings.logo.rot);
     scene.add(logo);
   } catch(e) { console.warn("Logo model error", e); }
+}
+
+// ============ 3D UI BUTTONS ============
+function setup3DButtons() {
+  buttonGroup = new THREE.Group();
+  
+  // Add the button group to the LOGO so it moves/floats with it
+  if (logo) {
+    logo.add(buttonGroup);
+  } else {
+    // Fallback if logo failed load
+    scene.add(buttonGroup);
+    buttonGroup.position.copy(settings.logo.pos);
+  }
+
+  const buttonData = [
+    { id: 1, pos: new THREE.Vector3(-1.5, 0.5, 0) },
+    { id: 2, pos: new THREE.Vector3(-1.5, -0.5, 0) },
+    { id: 3, pos: new THREE.Vector3(1.5, 0.5, 0) },
+    { id: 4, pos: new THREE.Vector3(1.5, -0.5, 0) }
+  ];
+
+  buttonData.forEach(data => {
+    createButtonSprite(data.id, data.pos);
+  });
+}
+
+function createButtonSprite(id, position) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 256;
+  canvas.height = 128;
+
+  // Draw Glass Button on Canvas
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+  ctx.roundRect(0, 0, 256, 128, 20);
+  ctx.fill();
+  
+  ctx.strokeStyle = 'rgba(0, 234, 255, 0.8)';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.fillStyle = '#00eaff';
+  ctx.font = 'bold 40px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`PATH 0${id}`, 128, 64);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({ 
+    map: texture, 
+    transparent: true, 
+    opacity: 1.0,
+    depthTest: false // Always render on top
+  });
+  
+  const sprite = new THREE.Sprite(material);
+  sprite.position.copy(position);
+  sprite.scale.set(1.5, 0.75, 1); // Aspect ratio 2:1
+  sprite.userData.id = id;
+  sprite.userData.isButton = true;
+  
+  buttonGroup.add(sprite);
+}
+
+function updateButtonVisibility() {
+  if(!buttonGroup || !camera) return;
+
+  const dist = camera.position.distanceTo(logo.position);
+  
+  // If far away (at path endpoint), hide buttons
+  if (dist > 5.0) {
+    buttonGroup.visible = false;
+  } else {
+    buttonGroup.visible = true;
+    // Make them face the camera
+    buttonGroup.children.forEach(btn => {
+      // Sprites automatically face camera, but we can scale them based on distance
+      const scale = Math.max(0.8, dist * 0.2);
+      btn.scale.set(1.5 * scale, 0.75 * scale, 1);
+    });
+  }
 }
 
 // ============ PLEXUS ============
@@ -223,27 +293,20 @@ function updatePlexus() {
 window.playPath = function(id) {
   if(isAnimating || !settings.camera.paths[id]) return;
   
-  // Visual active state
-  document.querySelectorAll('.glass-btn').forEach(b => b.classList.remove('active'));
-  const btn = document.querySelector(`.btn-path${id} .glass-btn`);
-  if(btn) btn.classList.add('active');
-  
   isAnimating = true;
   animStartTime = clock.getElapsedTime();
-  animDuration = 10.0; // 10 seconds
+  animDuration = 10.0;
   
   animStartPos.copy(camera.position);
   animEndPos.copy(settings.camera.paths[id].pos);
   
   camera.getWorldQuaternion(animStartQuat);
   
-  // Calculate target rotation
   const dummyCam = new THREE.Object3D();
   dummyCam.position.copy(animEndPos);
   dummyCam.lookAt(settings.camera.paths[id].lookAt);
   animEndQuat.setFromRotationMatrix(dummyCam.matrixWorld);
   
-  // Hide back button while moving
   document.getElementById('backBtn').classList.remove('show');
 }
 
@@ -251,19 +314,16 @@ window.resetCamera = function() {
   if(isAnimating) return;
   
   document.getElementById('backBtn').classList.remove('show');
-  document.querySelectorAll('.glass-btn').forEach(b => b.classList.remove('active'));
   
   isAnimating = true;
   animStartTime = clock.getElapsedTime();
-  animDuration = 12.0; // 12 seconds return
+  animDuration = 12.0;
   
   animStartPos.copy(camera.position);
-  // Return to EXACT start position
   animEndPos.copy(settings.camera.start.pos);
   
   camera.getWorldQuaternion(animStartQuat);
   
-  // Calculate return rotation (Facing logo)
   const dummyCam = new THREE.Object3D();
   dummyCam.position.copy(animEndPos);
   dummyCam.lookAt(settings.camera.start.lookAt);
@@ -283,8 +343,6 @@ function updateAnimation() {
   
   if(t >= 1.0) {
     isAnimating = false;
-    // Show back button ONLY if we are at an endpoint (not at start)
-    // We check distance to start position
     if(camera.position.distanceTo(settings.camera.start.pos) > 1.0) {
        document.getElementById('backBtn').classList.add('show');
     }
@@ -295,45 +353,37 @@ function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
-// ============ HOVER EFFECTS ============
-function updateHoverEffects() {
+// ============ INTERACTIONS ============
+function updateInteractions() {
   raycaster.setFromCamera(mouse, camera);
   
-  // Check logo hover
-  const intersects = logo ? raycaster.intersectObject(logo, true) : [];
-  isHovering = intersects.length > 0;
-  document.body.style.cursor = isHovering ? 'pointer' : 'default';
+  // Check Logo Hover
+  if(logo) {
+    const intersects = raycaster.intersectObject(logo, true);
+    isHovering = intersects.length > 0;
+    document.body.style.cursor = isHovering ? 'pointer' : 'default';
+  }
 
-  // Soft Blue / White Mix Colors
-  const targetColor = new THREE.Color(0xaaddff); // Soft light blue
+  // Check Button Clicks (Raycast against Sprites)
+  if (buttonGroup && buttonGroup.visible) {
+    const intersects = raycaster.intersectObjects(buttonGroup.children);
+    if (intersects.length > 0) {
+      document.body.style.cursor = 'pointer';
+      // Click handling is done in setupEvents 'click'
+    }
+  }
+  
+  // Update Colors
+  const targetColor = new THREE.Color(0xaaddff);
   const whiteColor = new THREE.Color(0xffffff);
 
-  // Lerp Mountains (Soft Blue mix)
   mountainMaterials.forEach(mat => {
     if (isHovering) {
-      mat.color.lerp(targetColor, 0.05); // Smooth transition to blue
+      mat.color.lerp(targetColor, 0.05);
     } else {
-      mat.color.lerp(whiteColor, 0.05);  // Smooth transition back to white
+      mat.color.lerp(whiteColor, 0.05);
     }
   });
-
-  // Lerp Logo (Soft Blue mix)
-  if (logo) {
-    logo.traverse((child) => {
-      if (child.isMesh && child.material) {
-        if (isHovering) {
-          child.material.color.lerp(targetColor, 0.05);
-          child.material.emissive = child.material.emissive || new THREE.Color(0x000000);
-          child.material.emissive.lerp(new THREE.Color(0x00eaff), 0.05); // Soft glow
-        } else {
-          child.material.color.lerp(whiteColor, 0.05);
-          if (child.material.emissive) {
-            child.material.emissive.lerp(new THREE.Color(0x000000), 0.05);
-          }
-        }
-      }
-    });
-  }
 }
 
 // ============ EVENTS ============
@@ -348,6 +398,18 @@ function setupEvents() {
   window.addEventListener('mousemove', (e) => {
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  });
+
+  window.addEventListener('click', () => {
+    if (!buttonGroup || !buttonGroup.visible) return;
+    
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(buttonGroup.children);
+    
+    if (intersects.length > 0) {
+      const id = intersects[0].object.userData.id;
+      if(id) playPath(id);
+    }
   });
   
   window.addEventListener('keydown', (e) => {
@@ -365,7 +427,8 @@ function animate() {
   
   updatePlexus();
   updateAnimation();
-  updateHoverEffects();
+  updateInteractions();
+  updateButtonVisibility(); // Hide/Show based on distance
   
   composer.render();
 }
