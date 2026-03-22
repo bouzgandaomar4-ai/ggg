@@ -4,126 +4,147 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-// ============ GLOBALS ============
+// ============ GLOBAL VARIABLES ============
 let scene, camera, renderer, composer;
-let mountains = null, logo = null;
+let mountains = null;
+let logo = null;
+let logoMaterials = [];
 let mountainMaterials = [];
-let plexusGroup, plexusPoints = [], plexusLines;
-let clock = new THREE.Clock();
-
-// Animation State
-let isAnimating = false;
-let animStartTime = 0;
-let animDuration = 0;
-let animStartPos = new THREE.Vector3();
-let animEndPos = new THREE.Vector3();
-let animStartQuat = new THREE.Quaternion();
-let animEndQuat = new THREE.Quaternion();
-
-// Hover State
-let isHovering = false;
-let raycaster = new THREE.Raycaster();
 let mouse = new THREE.Vector2();
+let raycaster = new THREE.Raycaster();
+let isHoveringLogo = false;
+let isHoveringButtons = false;
+let ambientLight, mainLight, rimLight, logoLight;
+let bloomPass;
 
-// ============ SETTINGS ============
-const settings = {
-  mountains: { 
-    pos: new THREE.Vector3(-7.9, 0, 3.5),
-    scale: 20,
-    rotY: 0
+// Plexus
+let plexusGroup = null;
+let plexusPoints = [];
+let plexusLines = null;
+
+// Camera animation
+let isAnimating = false;
+let animationComplete = false;
+
+// Starting position (From your code)
+const startPosition = {
+  x: -0.51,
+  y: 2.14,
+  z: 10.47,
+  lookHorizontal: 179.4 * (Math.PI / 180),
+  lookVertical: -5.3 * (Math.PI / 180)
+};
+
+// Paths (From your code)
+const paths = {
+  1: { x: -2.77, y: 2.64, z: 1.57 },
+  2: { x: -0.66, y: 2.14, z: 10.35 },
+  3: { x: -5.87, y: 2.14, z: 13.47 },
+  4: { x: -0.61, y: 5.15, z: -7.06 }
+};
+
+// Default Settings (From your code - CRITICAL FOR CORRECT PLACEMENT)
+const defaultSettings = {
+  mountains: {
+    x: -7.9, y: 4.9, z: 3.5, // Y is 4.9 here, not 0
+    scaleX: 0.8, scaleY: 1.9, scaleZ: 1.0,
+    uniformScale: 30,         // Scale is 30
+    rotX: 0, rotY: 133, rotZ: 0
   },
-  logo: { 
-    pos: new THREE.Vector3(-0.6, 2.0, 8.2), 
-    scale: 0.8
+  logo: {
+    x: -0.6, y: 2.0, z: 8.2,
+    scaleX: 1.0, scaleY: 1.0, scaleZ: 0.9,
+    uniformScale: 0.8,
+    rotX: 0, rotY: 0, rotZ: 2,
+    baseColor: 0xd0d0d0,
+    highlightColor: 0xf5f5f5,
+    shadowColor: 0x808080,
+    glowColor: 0x4da6ff,
+    rivetColor: 0xb8b8b8,
+    keyholeColor: 0x1a1a1a,
+    metalness: 0.8,
+    roughness: 0.2,
+    glowIntensity: 0.0,
+    clearCoat: 0.8
   },
-  camera: {
-    // EXACT Home Position provided
-    start: { 
-      pos: new THREE.Vector3(-0.51, 2.14, 10.47)
-    },
-    paths: {
-      1: { pos: new THREE.Vector3(-2.77, 2.64, 1.57), lookAt: new THREE.Vector3(-7.9, 0, 3.5) },
-      2: { pos: new THREE.Vector3(-0.66, 2.14, 10.35), lookAt: new THREE.Vector3(-0.6, 2.0, 8.2) },
-      3: { pos: new THREE.Vector3(-5.87, 2.14, 13.47), lookAt: new THREE.Vector3(-7.9, 0, 3.5) },
-      4: { pos: new THREE.Vector3(-0.61, 5.15, -7.06), lookAt: new THREE.Vector3(-0.6, 2.0, 8.2) }
-    }
+  plexus: {
+    count: 15,
+    radius: 8,
+    size: 0.05,
+    lineOpacity: 0.4,
+    changeSpeed: 200
   }
 };
 
-// CALCULATE START LOOK TARGET
-// Horizontal: 179.4° (Almost behind, looking at logo)
-// Vertical: -5.3° (Looking slightly down)
-const hRad = 179.4 * (Math.PI / 180);
-const vRad = -5.3 * (Math.PI / 180);
-
-// Calculate Direction Vector
-const dir = new THREE.Vector3(
-  Math.sin(hRad) * Math.cos(vRad),
-  Math.sin(vRad),
-  Math.cos(hRad) * Math.cos(vRad)
-);
-
-// Target = Position + Direction
-settings.camera.start.lookAt = new THREE.Vector3().addVectors(settings.camera.start.pos, dir);
-
-
-// ============ INIT ============
-async function init() {
-  setupScene();
-  setupCamera();
-  setupLights();
-  
-  try {
-    await loadModels();
-  } catch (e) {
-    console.error(e);
-    createFallbackScene();
-  }
-  
-  setupPlexus();
-  setupRenderer();
-  setupPostProcessing();
-  setupEvents();
-  
-  document.getElementById('loader').classList.add('hidden');
-  
+// ============ WELCOME ANIMATION ============
+function showWelcomeAnimation() {
+  const welcomeOverlay = document.getElementById('welcome-overlay');
   setTimeout(() => {
-    const welcome = document.getElementById('welcome-overlay');
-    if(welcome) welcome.classList.add('hidden');
-  }, 4500);
-  
-  animate();
+    welcomeOverlay.classList.add('hidden');
+  }, 3000);
 }
 
-function createFallbackScene() {
-  const geo = new THREE.BoxGeometry(2, 2, 2);
-  const mat = new THREE.MeshStandardMaterial({ color: 0x00eaff });
-  logo = new THREE.Mesh(geo, mat);
-  logo.position.copy(settings.logo.pos);
-  scene.add(logo);
+// ============ MAIN INIT ============
+async function init() {
+  try {
+    updateLoadingStatus('Setting up...');
+    setupScene();
+    setupCamera();
+    setupRenderer();
+    setupPostProcessing();
+    setupLights();
+    setupFog();
+    await loadMountains();
+    await loadLogo();
+    setupPlexus();
+    setupEventListeners();
+    updateLoadingStatus('Ready!');
+    
+    setTimeout(() => {
+      const loader = document.getElementById('loader');
+      if (loader) loader.classList.add('hidden');
+      showWelcomeAnimation();
+    }, 500);
+    
+    animate();
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
+function updateLoadingStatus(text) {
+  const status = document.getElementById('loading-status');
+  if (status) status.textContent = text;
 }
 
 function setupScene() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xffffff);
-  scene.fog = new THREE.FogExp2(0xffffff, 0.008);
 }
 
 function setupCamera() {
-  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-  
-  // Apply exact start position
-  camera.position.copy(settings.camera.start.pos);
-  
-  // Apply calculated look direction
-  camera.lookAt(settings.camera.start.lookAt);
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  resetCameraToStart();
 }
 
-function setupLights() {
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  dirLight.position.set(5, 10, 5);
-  scene.add(dirLight);
+function resetCameraToStart() {
+  camera.position.set(startPosition.x, startPosition.y, startPosition.z);
+  
+  const h = startPosition.lookHorizontal;
+  const v = startPosition.lookVertical;
+  
+  const direction = new THREE.Vector3();
+  direction.x = Math.sin(h) * Math.cos(v);
+  direction.y = Math.sin(v);
+  direction.z = Math.cos(h) * Math.cos(v);
+  
+  const target = new THREE.Vector3().copy(camera.position).add(direction);
+  camera.lookAt(target);
+  
+  const backBtn = document.getElementById('backBtn');
+  if (backBtn) {
+    backBtn.classList.remove('show');
+  }
 }
 
 function setupRenderer() {
@@ -131,200 +152,423 @@ function setupRenderer() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.5;
+  renderer.shadowMap.enabled = true;
   document.getElementById('canvas-container').appendChild(renderer.domElement);
 }
 
 function setupPostProcessing() {
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.3, 0.4, 0.85);
+  bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.2, 0.4, 0.1);
   composer.addPass(bloomPass);
 }
 
-async function loadModels() {
-  const loader = new GLTFLoader();
+function setupLights() {
+  ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+  scene.add(ambientLight);
   
-  try {
-    const gltf = await loader.loadAsync('mountains.glb');
-    mountains = gltf.scene;
-    mountains.position.copy(settings.mountains.pos);
-    mountains.scale.setScalar(settings.mountains.scale);
-    mountains.rotation.y = settings.mountains.rotY; 
-    mountains.traverse((child) => {
-      if (child.isMesh) {
-        child.material = child.material.clone();
-        mountainMaterials.push(child.material);
-      }
-    });
-    scene.add(mountains);
-  } catch(e) { console.warn("Mountain model error", e); }
-
-  try {
-    const gltf = await loader.loadAsync('white_mesh.glb');
-    logo = gltf.scene;
-    logo.position.copy(settings.logo.pos);
-    logo.scale.setScalar(settings.logo.scale);
-    scene.add(logo);
-  } catch(e) { console.warn("Logo model error", e); }
+  mainLight = new THREE.DirectionalLight(0xffffff, 0.6);
+  mainLight.position.set(5, 10, 5);
+  mainLight.castShadow = true;
+  scene.add(mainLight);
+  
+  rimLight = new THREE.DirectionalLight(0x88ccff, 0.3);
+  rimLight.position.set(-5, 2, -5);
+  scene.add(rimLight);
+  
+  logoLight = new THREE.PointLight(0x4da6ff, 0.3, 20);
+  logoLight.position.set(-0.6, 2, 8.2);
+  scene.add(logoLight);
 }
 
-// ============ PLEXUS ============
-function setupPlexus() {
-  plexusGroup = new THREE.Group();
-  scene.add(plexusGroup);
-  const geo = new THREE.BufferGeometry();
-  const positions = new Float32Array(500 * 3); 
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  const mat = new THREE.LineBasicMaterial({ color: 0x00eaff, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending });
-  plexusLines = new THREE.LineSegments(geo, mat);
-  plexusGroup.add(plexusLines);
+function setupFog() {
+  scene.fog = new THREE.FogExp2(0xffffff, 0.01);
+}
+
+async function loadMountains() {
+  const loader = new GLTFLoader();
+  const paths = ['mountains.glb', './mountains.glb'];
   
-  for(let i=0; i<20; i++) {
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x00eaff, transparent: true, opacity: 0.6 }));
-    sprite.scale.set(0.1, 0.1, 1);
-    sprite.position.set(
-      settings.logo.pos.x + (Math.random() - 0.5) * 10,
-      settings.logo.pos.y + (Math.random() - 0.5) * 5,
-      settings.logo.pos.z + (Math.random() - 0.5) * 10
-    );
-    sprite.userData.velocity = new THREE.Vector3((Math.random()-0.5)*0.02, (Math.random()-0.5)*0.02, (Math.random()-0.5)*0.02);
-    plexusGroup.add(sprite);
-    plexusPoints.push(sprite);
+  for (const path of paths) {
+    try {
+      const gltf = await new Promise((resolve, reject) => {
+        loader.load(path, resolve, undefined, reject);
+      });
+      
+      mountains = gltf.scene;
+      mountainMaterials = [];
+      
+      mountains.traverse((child) => {
+        if (child.isMesh && child.material) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach(mat => {
+            const cloned = mat.clone();
+            if (cloned.color) cloned.color.multiplyScalar(0.7);
+            mountainMaterials.push(cloned);
+          });
+        }
+      });
+      
+      // APPLYING EXACT SETTINGS
+      const s = defaultSettings.mountains;
+      mountains.position.set(s.x, s.y, s.z);
+      mountains.scale.set(s.uniformScale * s.scaleX, s.uniformScale * s.scaleY, s.uniformScale * s.scaleZ);
+      mountains.rotation.set(s.rotX * Math.PI / 180, s.rotY * Math.PI / 180, s.rotZ * Math.PI / 180);
+      
+      scene.add(mountains);
+      console.log('✅ Mountains loaded');
+      return;
+    } catch (error) {}
   }
 }
 
-function updatePlexus() {
-  let idx = 0;
-  const positions = plexusLines.geometry.attributes.position.array;
-  plexusPoints.forEach(p => {
-    p.position.add(p.userData.velocity);
-    if(p.position.distanceTo(settings.logo.pos) > 8) p.userData.velocity.multiplyScalar(-1);
-    plexusPoints.forEach(p2 => {
-      if(p === p2) return;
-      const dist = p.position.distanceTo(p2.position);
-      if(dist < 3.0) {
-        positions[idx++] = p.position.x; positions[idx++] = p.position.y; positions[idx++] = p.position.z;
-        positions[idx++] = p2.position.x; positions[idx++] = p2.position.y; positions[idx++] = p2.position.z;
-      }
-    });
+async function loadLogo() {
+  const loader = new GLTFLoader();
+  const paths = ['white_mesh.glb', './white_mesh.glb'];
+  
+  for (const path of paths) {
+    try {
+      const gltf = await new Promise((resolve, reject) => {
+        loader.load(path, resolve, undefined, reject);
+      });
+      
+      logo = gltf.scene;
+      logoMaterials = [];
+      
+      logo.traverse((child) => {
+        if (child.isMesh && child.material) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach(mat => logoMaterials.push(mat.clone()));
+        }
+      });
+      
+      updateLogoTransform();
+      updateLogoColors();
+      logo.castShadow = true;
+      scene.add(logo);
+      console.log('✅ Logo loaded with', logoMaterials.length, 'materials');
+      return;
+    } catch (error) {}
+  }
+}
+
+function updateLogoTransform() {
+  if (!logo) return;
+  const s = defaultSettings.logo;
+  logo.position.set(s.x, s.y, s.z);
+  logo.scale.set(s.uniformScale * s.scaleX, s.uniformScale * s.scaleY, s.uniformScale * s.scaleZ);
+  logo.rotation.set(s.rotX * Math.PI / 180, s.rotY * Math.PI / 180, s.rotZ * Math.PI / 180);
+}
+
+function updateLogoColors() {
+  if (!logoMaterials.length) return;
+  const s = defaultSettings.logo;
+  
+  logoMaterials.forEach((mat, i) => {
+    if (!mat) return;
+    if (i === 0) mat.color.setHex(s.baseColor);
+    else if (i === 1) mat.color.setHex(s.highlightColor);
+    else if (i === 2) mat.color.setHex(s.shadowColor);
+    else if (i === 3) {
+      mat.color.setHex(s.glowColor);
+      if (!mat.emissive) mat.emissive = new THREE.Color();
+      mat.emissive.setHex(s.glowColor);
+      mat.emissiveIntensity = s.glowIntensity;
+    }
+    else if (i === 4) mat.color.setHex(s.rivetColor);
+    else if (i === 5) mat.color.setHex(s.keyholeColor);
+    else mat.color.setHex(s.baseColor);
+    
+    mat.metalness = s.metalness;
+    mat.roughness = s.roughness;
+    mat.clearcoat = s.clearCoat;
+    mat.clearcoatRoughness = 0.05;
+    mat.needsUpdate = true;
   });
-  plexusLines.geometry.setDrawRange(0, idx / 3);
-  plexusLines.geometry.attributes.position.needsUpdate = true;
 }
 
-// ============ ANIMATION SYSTEM ============
-window.playPath = function(id) {
-  if(isAnimating || !settings.camera.paths[id]) return;
+function setupPlexus() {
+  if (!plexusGroup) {
+    plexusGroup = new THREE.Group();
+    scene.add(plexusGroup);
+  }
+  
+  for (let i = 0; i < defaultSettings.plexus.count; i++) {
+    createPlexusPoint();
+  }
+  
+  const lineGeometry = new THREE.BufferGeometry();
+  const maxLines = defaultSettings.plexus.count * defaultSettings.plexus.count * 6;
+  const positions = new Float32Array(maxLines);
+  lineGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  
+  const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0 });
+  plexusLines = new THREE.LineSegments(lineGeometry, lineMaterial);
+  plexusGroup.add(plexusLines);
+  plexusGroup.visible = true;
+}
+
+function createPlexusPoint() {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 32;
+  canvas.height = 32;
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0, color: 0x00d4ff });
+  
+  const sprite = new THREE.Sprite(spriteMaterial);
+  sprite.scale.set(defaultSettings.plexus.size, defaultSettings.plexus.size, 1);
+  sprite.userData.number = Math.floor(Math.random() * 9) + 1;
+  sprite.userData.currentOpacity = 0;
+  sprite.userData.canvas = canvas;
+  sprite.userData.ctx = ctx;
+  
+  updatePointNumber(sprite);
+  randomizePlexusPosition(sprite);
+  
+  plexusGroup.add(sprite);
+  plexusPoints.push(sprite);
+}
+
+function updatePointNumber(sprite) {
+  const ctx = sprite.userData.ctx;
+  const canvas = sprite.userData.canvas;
+  ctx.clearRect(0, 0, 32, 32);
+  ctx.fillStyle = 'rgba(0, 212, 255, 0.95)';
+  ctx.font = 'bold 20px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(sprite.userData.number.toString(), 16, 16);
+  sprite.material.map.needsUpdate = true;
+}
+
+function randomizePlexusPosition(sprite) {
+  const angle = Math.random() * Math.PI * 2;
+  const radius = defaultSettings.plexus.radius * (0.5 + Math.random() * 0.5);
+  const height = (Math.random() - 0.5) * 15;
+  
+  sprite.userData.targetPos = new THREE.Vector3(
+    -7.9 + Math.cos(angle) * radius,
+    4.9 + height,
+    3.5 + Math.sin(angle) * radius
+  );
+}
+
+let lastPlexusChange = 0;
+function updatePlexus(time, deltaTime) {
+  const speed = 3.0;
+  const targetOpacity = (isHoveringLogo || isHoveringButtons) ? 0.8 : 0.3;
+  
+  if (time - lastPlexusChange > defaultSettings.plexus.changeSpeed) {
+    lastPlexusChange = time;
+    plexusPoints.forEach(sprite => {
+      sprite.userData.number = Math.floor(Math.random() * 9) + 1;
+      updatePointNumber(sprite);
+      randomizePlexusPosition(sprite);
+    });
+  }
+  
+  plexusPoints.forEach(sprite => {
+    if (!sprite.position) sprite.position = new THREE.Vector3();
+    if (!sprite.userData.targetPos) randomizePlexusPosition(sprite);
+    
+    sprite.position.lerp(sprite.userData.targetPos, deltaTime * speed);
+    sprite.userData.currentOpacity += (targetOpacity - sprite.userData.currentOpacity) * deltaTime * speed;
+    sprite.material.opacity = sprite.userData.currentOpacity;
+  });
+  
+  if (plexusLines && plexusPoints.length > 1) {
+    const positions = plexusLines.geometry.attributes.position.array;
+    let index = 0;
+    
+    for (let i = 0; i < plexusPoints.length; i++) {
+      for (let j = i + 1; j < plexusPoints.length; j++) {
+        const p1 = plexusPoints[i].position;
+        const p2 = plexusPoints[j].position;
+        const distance = p1.distanceTo(p2);
+        
+        if (distance < 10) {
+          positions[index++] = p1.x;
+          positions[index++] = p1.y;
+          positions[index++] = p1.z;
+          positions[index++] = p2.x;
+          positions[index++] = p2.y;
+          positions[index++] = p2.z;
+        }
+      }
+    }
+    
+    plexusLines.geometry.attributes.position.needsUpdate = true;
+    
+    const lineOpacity = (isHoveringLogo || isHoveringButtons) ? defaultSettings.plexus.lineOpacity : 0.1;
+    plexusLines.material.opacity += (lineOpacity - plexusLines.material.opacity) * deltaTime * speed;
+  }
+}
+
+// ============ HOVER EFFECTS ============
+window.onHoverStart = function() {
+  isHoveringButtons = true;
+};
+
+window.onHoverEnd = function() {
+  isHoveringButtons = false;
+};
+
+// ============ SMOOTH CAMERA MOVEMENT ============
+window.playPath = function(pathNumber) {
+  if (isAnimating) return;
+  
+  const targetPos = paths[pathNumber];
+  if (!targetPos) return;
+  
+  document.querySelectorAll('.glass-btn').forEach((btn, index) => {
+    btn.classList.toggle('active', index + 1 === pathNumber);
+  });
   
   isAnimating = true;
-  animStartTime = clock.getElapsedTime();
-  animDuration = 10.0;
+  animationComplete = false;
   
-  animStartPos.copy(camera.position);
-  animEndPos.copy(settings.camera.paths[id].pos);
+  const startPos = camera.position.clone();
+  const endPos = new THREE.Vector3(targetPos.x, targetPos.y, targetPos.z);
   
-  camera.getWorldQuaternion(animStartQuat);
+  const startTime = performance.now();
+  const duration = 10000; // 10 seconds smooth movement
   
-  const dummyCam = new THREE.Object3D();
-  dummyCam.position.copy(animEndPos);
-  dummyCam.lookAt(settings.camera.paths[id].lookAt);
-  animEndQuat.setFromRotationMatrix(dummyCam.matrixWorld);
-  
-  // UI Updates
-  document.getElementById('backBtn').classList.remove('show');
-  document.getElementById('button-group').classList.add('hidden');
-}
-
-// FIXED: Logic to return to specific home coordinates
-window.resetCamera = function() {
-  if(isAnimating) return;
-  
-  isAnimating = true;
-  animStartTime = clock.getElapsedTime();
-  animDuration = 12.0;
-  
-  animStartPos.copy(camera.position);
-  // Return to Calculated Start Position
-  animEndPos.copy(settings.camera.start.pos);
-  
-  camera.getWorldQuaternion(animStartQuat);
-  
-  // Calculate Return Rotation using the SAME MATH as init
-  const dummyCam = new THREE.Object3D();
-  dummyCam.position.copy(animEndPos);
-  dummyCam.lookAt(settings.camera.start.lookAt);
-  animEndQuat.setFromRotationMatrix(dummyCam.matrixWorld);
-  
-  document.getElementById('backBtn').classList.remove('show');
-}
-
-function updateAnimation() {
-  if(!isAnimating) return;
-  
-  let elapsed = clock.getElapsedTime() - animStartTime;
-  let t = Math.min(elapsed / animDuration, 1.0);
-  
-  const eased = easeInOutCubic(t);
-  
-  camera.position.lerpVectors(animStartPos, animEndPos, eased);
-  camera.quaternion.slerpQuaternions(animStartQuat, animEndQuat, eased);
-  
-  if(t >= 1.0) {
-    isAnimating = false;
+  function animatePath() {
+    if (!isAnimating) return;
     
-    // Check distance to the Home Position
-    const distToStart = camera.position.distanceTo(settings.camera.start.pos);
+    const elapsed = performance.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
     
-    // If we are close to home (arrived)
-    if(distToStart < 0.5) {
-       document.getElementById('button-group').classList.remove('hidden');
+    // Smooth easing
+    const easedProgress = easeInOutCubic(progress);
+    
+    camera.position.lerpVectors(startPos, endPos, easedProgress);
+    camera.lookAt(logo.position);
+    
+    if (progress < 1) {
+      requestAnimationFrame(animatePath);
     } else {
-       // If we are at an endpoint
-       document.getElementById('backBtn').classList.add('show');
+      isAnimating = false;
+      animationComplete = true;
+      setTimeout(() => {
+        const backBtn = document.getElementById('backBtn');
+        if (backBtn) {
+          backBtn.classList.add('show');
+        }
+        document.querySelectorAll('.glass-btn').forEach(btn => btn.classList.remove('active'));
+      }, 500);
     }
   }
-}
+  
+  animatePath();
+};
 
 function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
-// ============ INTERACTIONS ============
-function updateInteractions() {
-  raycaster.setFromCamera(mouse, camera);
+// ============ SMOOTH RETURN TO START ============
+window.resetCamera = function() {
+  if (isAnimating) return;
   
-  if(logo) {
-    const intersects = raycaster.intersectObject(logo, true);
-    isHovering = intersects.length > 0;
-    document.body.style.cursor = isHovering ? 'pointer' : 'default';
+  isAnimating = true;
+  animationComplete = false;
+  
+  const backBtn = document.getElementById('backBtn');
+  if (backBtn) {
+    backBtn.classList.remove('show');
   }
-
-  const targetColor = new THREE.Color(0xaaddff);
-  const whiteColor = new THREE.Color(0xffffff);
-
-  mountainMaterials.forEach(mat => {
-    if (isHovering) mat.color.lerp(targetColor, 0.05);
-    else mat.color.lerp(whiteColor, 0.05);
-  });
   
-  if(logo) {
-    logo.traverse((child) => {
-        if (child.isMesh && child.material) {
-            if (isHovering) {
-                child.material.color.lerp(targetColor, 0.05);
-                child.material.emissive = child.material.emissive || new THREE.Color(0x000000);
-                child.material.emissive.lerp(new THREE.Color(0x00eaff), 0.05);
-            } else {
-                child.material.color.lerp(whiteColor, 0.05);
-                 if (child.material.emissive) child.material.emissive.lerp(new THREE.Color(0x000000), 0.05);
-            }
-        }
+  const startPos = camera.position.clone();
+  const endPos = new THREE.Vector3(startPosition.x, startPosition.y, startPosition.z);
+  
+  const startTime = performance.now();
+  const duration = 12000; // 12 seconds smooth return
+  
+  function animateReturn() {
+    if (!isAnimating) return;
+    
+    const elapsed = performance.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    
+    const easedProgress = easeInOutCubic(progress);
+    
+    camera.position.lerpVectors(startPos, endPos, easedProgress);
+    
+    // Maintain proper look direction during return
+    const h = startPosition.lookHorizontal;
+    const v = startPosition.lookVertical;
+    const direction = new THREE.Vector3();
+    direction.x = Math.sin(h) * Math.cos(v);
+    direction.y = Math.sin(v);
+    direction.z = Math.cos(h) * Math.cos(v);
+    const target = new THREE.Vector3().copy(camera.position).add(direction);
+    camera.lookAt(target);
+    
+    if (progress < 1) {
+      requestAnimationFrame(animateReturn);
+    } else {
+      isAnimating = false;
+      animationComplete = true;
+      document.querySelectorAll('.glass-btn').forEach(btn => btn.classList.remove('active'));
+    }
+  }
+  
+  animateReturn();
+};
+
+function updateHoverEffects(deltaTime) {
+  const speed = 2.0;
+  const isHovering = isHoveringLogo || isHoveringButtons;
+  
+  if (logoMaterials.length > 0) {
+    const targetIntensity = isHovering ? 3.0 : 0.0;
+    logoMaterials.forEach((mat, i) => {
+      if (i === 3 && mat.emissive) {
+        mat.emissiveIntensity += (targetIntensity - mat.emissiveIntensity) * speed * deltaTime;
+      }
     });
+  }
+  
+  if (logoLight) {
+    const target = isHovering ? 1.2 : 0.3;
+    logoLight.intensity += (target - logoLight.intensity) * speed * deltaTime;
+  }
+  
+  if (mountainMaterials.length > 0) {
+    mountainMaterials.forEach(mat => {
+      if (mat.color) {
+        if (isHovering) {
+          const current = mat.color.r;
+          mat.color.setRGB(
+            current + (0.45 - current) * speed * deltaTime * 0.3,
+            current + (0.55 - current) * speed * deltaTime * 0.3,
+            current + (0.65 - current) * speed * deltaTime * 0.3
+          );
+        } else {
+          mat.color.multiplyScalar(0.995);
+        }
+        mat.needsUpdate = true;
+      }
+    });
+  }
+  
+  if (bloomPass) {
+    const target = isHovering ? 0.5 : 0.2;
+    bloomPass.strength += (target - bloomPass.strength) * speed * deltaTime;
   }
 }
 
-// ============ EVENTS ============
-function setupEvents() {
+function setupEventListeners() {
+  document.addEventListener('mousemove', (e) => {
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    checkLogoHover();
+  });
+  
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -332,27 +576,32 @@ function setupEvents() {
     composer.setSize(window.innerWidth, window.innerHeight);
   });
   
-  window.addEventListener('mousemove', (e) => {
-    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-  });
-  
-  window.addEventListener('keydown', (e) => {
-    if(e.key.toLowerCase() === 'r') resetCamera();
+  document.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() === 'r') resetCamera();
   });
 }
 
-// ============ LOOP ============
-function animate() {
+function checkLogoHover() {
+  if (!logo) return;
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObject(logo, true);
+  isHoveringLogo = intersects.length > 0;
+  document.body.style.cursor = isHoveringLogo ? 'pointer' : 'default';
+}
+
+let lastTime = 0;
+function animate(currentTime = 0) {
   requestAnimationFrame(animate);
   
-  if(logo) {
-    logo.position.y = settings.logo.pos.y + Math.sin(clock.getElapsedTime() * 0.5) * 0.05;
+  const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1);
+  lastTime = currentTime;
+  
+  if (logo) {
+    logo.position.y = defaultSettings.logo.y + Math.sin(currentTime * 0.0008) * 0.05;
   }
   
-  updatePlexus();
-  updateAnimation();
-  updateInteractions();
+  updateHoverEffects(deltaTime);
+  updatePlexus(currentTime, deltaTime);
   
   composer.render();
 }
