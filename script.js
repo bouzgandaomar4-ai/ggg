@@ -137,7 +137,6 @@ function setupCamera() {
 function resetCameraToStart() {
   camera.position.set(startPosition.x, startPosition.y, startPosition.z);
   
-  // Calculate exact look direction
   const h = startPosition.lookHorizontal;
   const v = startPosition.lookVertical;
   
@@ -422,10 +421,10 @@ window.onHoverEnd = function() {
 window.playPath = function(pathNumber) {
   if (isAnimating) return;
   
-  const targetPos = paths[pathNumber];
-  if (!targetPos) return;
+  const targetPosData = paths[pathNumber];
+  if (!targetPosData) return;
   
-  // UI: Hide Buttons, Show Active
+  // UI Updates
   document.getElementById('button-group').classList.add('hidden');
   document.querySelectorAll('.glass-btn').forEach((btn, index) => {
     btn.classList.toggle('active', index + 1 === pathNumber);
@@ -433,16 +432,16 @@ window.playPath = function(pathNumber) {
   
   isAnimating = true;
   animProgress = 0;
-  animDuration = 10.0; // 10 seconds
+  animDuration = 10.0;
 
-  // Store Start
+  // Define Positions
   startPos.copy(camera.position);
-  camera.getWorldQuaternion(startQuat);
+  endPos.set(targetPosData.x, targetPosData.y, targetPosData.z);
 
-  // Store End Position
-  endPos.set(targetPos.x, targetPos.y, targetPos.z);
+  // Define Rotations
+  camera.getWorldQuaternion(startQuat); // Current rotation
 
-  // Calculate End Rotation (Look at Logo)
+  // Target Rotation: Look at Logo from End Position
   const dummyCam = new THREE.Object3D();
   dummyCam.position.copy(endPos);
   dummyCam.lookAt(logo.position);
@@ -456,16 +455,18 @@ window.resetCamera = function() {
   
   isAnimating = true;
   animProgress = 0;
-  animDuration = 12.0; // 12 seconds
+  animDuration = 12.0;
 
-  // Store Start
   startPos.copy(camera.position);
-  camera.getWorldQuaternion(startQuat);
-
-  // Store End Position
   endPos.set(startPosition.x, startPosition.y, startPosition.z);
 
-  // Calculate End Rotation (Look at calculated start target)
+  camera.getWorldQuaternion(startQuat);
+
+  // Target Rotation: Look at Logo from Start Position
+  const dummyCam = new THREE.Object3D();
+  dummyCam.position.copy(endPos);
+  
+  // Use the precise angles provided
   const h = startPosition.lookHorizontal;
   const v = startPosition.lookVertical;
   const direction = new THREE.Vector3();
@@ -473,24 +474,20 @@ window.resetCamera = function() {
   direction.y = Math.sin(v);
   direction.z = Math.cos(h) * Math.cos(v);
   
-  const dummyCam = new THREE.Object3D();
-  dummyCam.position.copy(endPos);
-  // Look in the specific direction calculated from angles
-  dummyCam.lookAt(dummyCam.position.clone().add(direction)); 
+  dummyCam.lookAt(dummyCam.position.clone().add(direction));
   endQuat.setFromRotationMatrix(dummyCam.matrixWorld);
 }
 
 function updateAnimation(deltaTime) {
   if (!isAnimating) return;
 
-  // Increment progress
   animProgress += deltaTime / animDuration;
 
   if (animProgress >= 1.0) {
     animProgress = 1.0;
     isAnimating = false;
     
-    // Check if we are back at home to show buttons
+    // Check if near Home
     const distToStart = camera.position.distanceTo(new THREE.Vector3(startPosition.x, startPosition.y, startPosition.z));
     
     if (distToStart < 0.5) {
@@ -503,10 +500,10 @@ function updateAnimation(deltaTime) {
   // Easing
   const easedProgress = easeInOutCubic(animProgress);
 
-  // Lerp Position
+  // Update Position
   camera.position.lerpVectors(startPos, endPos, easedProgress);
 
-  // Slerp Rotation (Smooth Look)
+  // Update Rotation - SMOOTH INTERPOLATION (FIXES THE JUMP)
   camera.quaternion.slerpQuaternions(startQuat, endQuat, easedProgress);
 }
 
@@ -586,7 +583,6 @@ function checkLogoHover() {
 function animate() {
   requestAnimationFrame(animate);
   
-  // Delta Time is KING for smooth animation
   const deltaTime = Math.min(clock.getDelta(), 0.1); 
   const elapsedTime = clock.getElapsedTime();
   
