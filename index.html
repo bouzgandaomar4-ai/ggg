@@ -13,235 +13,121 @@
   }
   </script>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
-      width: 100%;
-      height: 100%;
+      width: 100%; height: 100%;
       overflow: hidden;
       background: #ffffff;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
     
     /* LOADER */
     #loader {
-      position: fixed;
-      top: 0; left: 0;
+      position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
       background: linear-gradient(135deg, #0a0e17 0%, #1a1f2e 100%);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
       z-index: 9999;
-      transition: opacity 0.8s ease, visibility 0.8s ease;
+      transition: opacity 0.8s ease;
     }
-    #loader.hidden {
-      opacity: 0;
-      visibility: hidden;
-    }
-    .ascii {
-      font-family: 'Courier New', monospace;
-      font-size: 32px;
-      color: #00d4ff;
-      text-shadow: 0 0 20px rgba(0, 212, 255, 0.8);
-      animation: pulse 2s infinite;
-      margin-bottom: 20px;
-    }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    #loader.hidden { opacity: 0; pointer-events: none; }
+    .ascii { font-family: 'Courier New'; font-size: 32px; color: #00d4ff; animation: pulse 2s infinite; margin-bottom: 20px; }
     .loading-text { color: #8892b0; letter-spacing: 3px; font-size: 14px; }
-    
-    /* WELCOME OVERLAY */
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    /* WELCOME */
     #welcome-overlay {
-      position: fixed;
-      top: 0; left: 0;
+      position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.98);
       z-index: 10001;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      opacity: 1;
+      display: flex; justify-content: center; align-items: center;
       transition: opacity 1s ease;
-      pointer-events: none; /* Allow clicks to pass through once hidden */
-    }
-    #welcome-overlay.hidden {
-      opacity: 0;
       pointer-events: none;
     }
+    #welcome-overlay.hidden { opacity: 0; }
     .welcome-text {
-      font-family: 'Courier New', monospace;
-      font-size: 36px;
-      color: #00eaff;
-      letter-spacing: 4px;
-      text-shadow: 0 0 30px rgba(0, 234, 255, 0.8);
-      border-right: 3px solid #00eaff;
-      white-space: nowrap;
-      overflow: hidden;
-      width: 0;
+      font-family: 'Courier New'; font-size: 36px; color: #00eaff;
+      border-right: 3px solid #00eaff; white-space: nowrap;
       animation: typing 3.5s steps(30) forwards, blink-caret 0.75s step-end infinite;
     }
     @keyframes typing { from { width: 0; } to { width: 100%; } }
     @keyframes blink-caret { from, to { border-color: transparent; } 50% { border-color: #00eaff; } }
-    
+
     /* CANVAS */
-    #canvas-container {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      z-index: 1;
-    }
-    
-    /* UI CONTAINER - Centered relative to screen */
+    #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+
+    /* UI LAYER - FIXED CENTERED */
     .ui-layer {
-      position: fixed;
-      top: 0; left: 0;
+      position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
       pointer-events: none;
       z-index: 100;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
-    
-    /* PATH BUTTONS CENTERED */
+
+    /* BUTTONS CONTAINER - Always Centered */
     .path-buttons {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 500px;
-      height: 300px;
-      /* Helper visual to debug centering - can be removed */
-      /* border: 1px solid red;  */
+      position: relative;
+      width: 600px; height: 400px;
+      display: flex; justify-content: center; align-items: center;
     }
-    
-    .path-node {
-      position: absolute;
-      pointer-events: auto;
-      transition: opacity 0.5s ease;
-    }
-    
-    /* Closer positioning relative to the 500x300 box center */
-    .btn-path1 { top: 20%; left: 0; transform: translate(-50%, -50%); }
-    .btn-path2 { bottom: 20%; left: 0; transform: translate(-50%, 50%); }
-    .btn-path3 { top: 20%; right: 0; transform: translate(50%, -50%); }
-    .btn-path4 { bottom: 20%; right: 0; transform: translate(50%, 50%); }
 
-    /* GLASS MORPHISM BUTTONS */
+    .path-node { position: absolute; pointer-events: auto; }
+    
+    /* Closer to center */
+    .btn-path1 { top: 15%; left: 10%; }
+    .btn-path2 { bottom: 15%; left: 10%; }
+    .btn-path3 { top: 15%; right: 10%; }
+    .btn-path4 { bottom: 15%; right: 10%; }
+
+    /* GLASS BUTTONS */
     .glass-btn {
-      padding: 12px 28px;
-      font-size: 11px;
-      color: #00eaff;
-      cursor: pointer;
-      background: rgba(255, 255, 255, 0.03);
-      backdrop-filter: blur(16px);
-      border: 1px solid rgba(0, 234, 255, 0.4);
-      border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), inset 0 0 20px rgba(0, 234, 255, 0.05);
-      transition: all 0.3s ease;
-      font-weight: 600;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      white-space: nowrap;
+      padding: 12px 28px; font-size: 11px; color: #00eaff;
+      cursor: pointer; background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(16px); border: 1px solid rgba(0, 234, 255, 0.4);
+      border-radius: 12px; transition: all 0.3s ease;
+      font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase;
     }
-    
-    .glass-btn:hover {
-      background: rgba(0, 234, 255, 0.15);
-      transform: scale(1.05);
-      box-shadow: 0 0 30px rgba(0, 234, 255, 0.6);
-      border-color: #00eaff;
-    }
+    .glass-btn:hover { background: rgba(0, 234, 255, 0.2); box-shadow: 0 0 20px rgba(0, 234, 255, 0.5); }
+    .glass-btn.active { background: rgba(0, 234, 255, 0.3); color: #fff; }
 
-    .glass-btn.active {
-      background: rgba(0, 234, 255, 0.3);
-      color: #fff;
-    }
-    
     /* BACK BUTTON */
     .back-btn {
-      position: fixed;
-      bottom: 40px;
-      right: 40px;
-      padding: 14px 28px;
-      font-size: 12px;
-      color: #fff;
-      background: rgba(0, 234, 255, 0.1);
-      border: 1px solid rgba(0, 234, 255, 0.5);
-      border-radius: 12px;
-      cursor: pointer;
-      pointer-events: auto;
-      opacity: 0;
-      transform: translateY(20px);
-      transition: all 0.5s ease;
+      position: fixed; bottom: 40px; right: 40px;
+      padding: 14px 28px; font-size: 12px; color: #fff;
+      background: rgba(0, 234, 255, 0.1); border: 1px solid rgba(0, 234, 255, 0.5);
+      border-radius: 12px; cursor: pointer; pointer-events: auto;
+      opacity: 0; transform: translateY(20px); transition: all 0.5s ease;
       z-index: 150;
-      backdrop-filter: blur(10px);
     }
-    
-    .back-btn.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    
-    .back-btn:hover {
-      background: rgba(0, 234, 255, 0.3);
-    }
+    .back-btn.show { opacity: 1; transform: translateY(0); }
+    .back-btn:hover { background: rgba(0, 234, 255, 0.3); }
 
-    /* SLOGAN */
     .slogan {
-      position: fixed;
-      bottom: 40px;
-      left: 40px;
-      color: rgba(0, 234, 255, 0.6);
-      font-size: 11px;
-      letter-spacing: 1px;
-      pointer-events: none;
-      z-index: 100;
-    }
-
-    /* CONNECTING LINES SVG */
-    .connecting-lines {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      pointer-events: none;
-      z-index: 99;
-    }
-    .line-path {
-      stroke: rgba(0, 234, 255, 0.3);
-      stroke-width: 1;
-      stroke-dasharray: 5, 5;
-      fill: none;
+      position: fixed; bottom: 40px; left: 40px;
+      color: rgba(0, 234, 255, 0.6); font-size: 11px; letter-spacing: 1px;
+      pointer-events: none; z-index: 100;
     }
   </style>
 </head>
 <body>
 
-  <!-- LOADER -->
   <div id="loader">
     <div class="ascii">---===+++===---</div>
     <div class="loading-text">INITIALIZING SYSTEM</div>
   </div>
 
-  <!-- WELCOME -->
   <div id="welcome-overlay">
     <div class="welcome-text">WELCOME TO OFFENSIVE BLOOM</div>
   </div>
 
-  <!-- 3D RENDERER -->
   <div id="canvas-container"></div>
 
-  <!-- UI LAYER -->
   <div class="ui-layer">
-    <!-- SVG LINES -->
-    <svg class="connecting-lines">
-      <path id="line1" class="line-path" d="M 0 0" />
-      <path id="line2" class="line-path" d="M 0 0" />
-      <path id="line3" class="line-path" d="M 0 0" />
-      <path id="line4" class="line-path" d="M 0 0" />
-    </svg>
-
-    <!-- BUTTONS -->
     <div class="path-buttons">
       <div class="path-node btn-path1">
         <button class="glass-btn" onclick="playPath(1)">PATH 01</button>
@@ -260,8 +146,7 @@
     <button class="back-btn" id="backBtn" onclick="resetCamera()">← BACK TO START</button>
     
     <div class="slogan">
-      "We find and build what others can't.<br>
-      We break what others trust."
+      "We find and build what others can't.<br>We break what others trust."
     </div>
   </div>
 
