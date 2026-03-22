@@ -7,7 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 // ============ GLOBALS ============
 let scene, camera, renderer, composer;
 let mountains = null, logo = null;
-let mountainMaterials = []; // To store materials for hover effect
+let mountainMaterials = [];
 let plexusGroup, plexusPoints = [], plexusLines;
 let clock = new THREE.Clock();
 
@@ -28,9 +28,9 @@ let mouse = new THREE.Vector2();
 // Settings
 const settings = {
   mountains: { 
-    pos: new THREE.Vector3(-7.9, 0, 3.5), // Lowered Y so it sits on ground
-    scale: 20,                           // Adjusted scale
-    rotY: 0                              // Reset rotation to fix "inverted" issue
+    pos: new THREE.Vector3(-7.9, 0, 3.5),
+    scale: 20,
+    rotY: 0
   },
   logo: { 
     pos: new THREE.Vector3(-0.6, 2.0, 8.2), 
@@ -38,7 +38,17 @@ const settings = {
     rot: new THREE.Euler(0, 0, 2 * Math.PI / 180) 
   },
   camera: {
-    start: { pos: new THREE.Vector3(-0.51, 2.14, 10.47), lookAt: new THREE.Vector3(-0.6, 2.0, 8.2) },
+    // EXACT START PARAMETERS PROVIDED:
+    // Position: x:-0.51, y:2.14, z:10.47
+    // Look Horizontal: 179.4°, Vertical: -5.3°
+    start: { 
+      pos: new THREE.Vector3(-0.51, 2.14, 10.47), 
+      lookAt: new THREE.Vector3(
+        -0.51 + Math.sin(179.4 * Math.PI / 180) * Math.cos(-5.3 * Math.PI / 180),
+        2.14 + Math.sin(-5.3 * Math.PI / 180),
+        10.47 + Math.cos(179.4 * Math.PI / 180) * Math.cos(-5.3 * Math.PI / 180)
+      )
+    },
     paths: {
       1: { pos: new THREE.Vector3(-2.77, 2.64, 1.57), lookAt: new THREE.Vector3(-7.9, 0, 3.5) },
       2: { pos: new THREE.Vector3(-0.66, 2.14, 10.35), lookAt: new THREE.Vector3(-0.6, 2.0, 8.2) },
@@ -87,12 +97,14 @@ function createFallbackScene() {
 function setupScene() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xffffff);
-  scene.fog = new THREE.FogExp2(0xffffff, 0.008); // Reduced fog density
+  scene.fog = new THREE.FogExp2(0xffffff, 0.008);
 }
 
 function setupCamera() {
   camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+  // Set exact start position
   camera.position.copy(settings.camera.start.pos);
+  // Look at calculated target
   camera.lookAt(settings.camera.start.lookAt);
 }
 
@@ -127,15 +139,14 @@ async function loadModels() {
     const gltf = await loader.loadAsync('mountains.glb');
     mountains = gltf.scene;
     
-    // --- FIX: Apply settings to fix position and inversion ---
     mountains.position.copy(settings.mountains.pos);
     mountains.scale.setScalar(settings.mountains.scale);
     mountains.rotation.y = settings.mountains.rotY; 
     
-    // Store materials for hover effect
+    // Store materials for soft hover effect
     mountains.traverse((child) => {
       if (child.isMesh) {
-        child.material = child.material.clone(); // Clone to avoid affecting other meshes
+        child.material = child.material.clone();
         mountainMaterials.push(child.material);
       }
     });
@@ -212,24 +223,27 @@ function updatePlexus() {
 window.playPath = function(id) {
   if(isAnimating || !settings.camera.paths[id]) return;
   
+  // Visual active state
   document.querySelectorAll('.glass-btn').forEach(b => b.classList.remove('active'));
   const btn = document.querySelector(`.btn-path${id} .glass-btn`);
   if(btn) btn.classList.add('active');
   
   isAnimating = true;
   animStartTime = clock.getElapsedTime();
-  animDuration = 10.0;
+  animDuration = 10.0; // 10 seconds
   
   animStartPos.copy(camera.position);
   animEndPos.copy(settings.camera.paths[id].pos);
   
   camera.getWorldQuaternion(animStartQuat);
   
+  // Calculate target rotation
   const dummyCam = new THREE.Object3D();
   dummyCam.position.copy(animEndPos);
   dummyCam.lookAt(settings.camera.paths[id].lookAt);
   animEndQuat.setFromRotationMatrix(dummyCam.matrixWorld);
   
+  // Hide back button while moving
   document.getElementById('backBtn').classList.remove('show');
 }
 
@@ -241,13 +255,15 @@ window.resetCamera = function() {
   
   isAnimating = true;
   animStartTime = clock.getElapsedTime();
-  animDuration = 12.0;
+  animDuration = 12.0; // 12 seconds return
   
   animStartPos.copy(camera.position);
+  // Return to EXACT start position
   animEndPos.copy(settings.camera.start.pos);
   
   camera.getWorldQuaternion(animStartQuat);
   
+  // Calculate return rotation (Facing logo)
   const dummyCam = new THREE.Object3D();
   dummyCam.position.copy(animEndPos);
   dummyCam.lookAt(settings.camera.start.lookAt);
@@ -267,8 +283,9 @@ function updateAnimation() {
   
   if(t >= 1.0) {
     isAnimating = false;
-    // Show back button only if we are not at the start position
-    if(settings.camera.start.pos.distanceTo(animEndPos) > 0.1) {
+    // Show back button ONLY if we are at an endpoint (not at start)
+    // We check distance to start position
+    if(camera.position.distanceTo(settings.camera.start.pos) > 1.0) {
        document.getElementById('backBtn').classList.add('show');
     }
   }
@@ -280,22 +297,43 @@ function easeInOutCubic(t) {
 
 // ============ HOVER EFFECTS ============
 function updateHoverEffects() {
-  // 1. Check raycast
   raycaster.setFromCamera(mouse, camera);
+  
+  // Check logo hover
   const intersects = logo ? raycaster.intersectObject(logo, true) : [];
   isHovering = intersects.length > 0;
   document.body.style.cursor = isHovering ? 'pointer' : 'default';
 
-  // 2. Update Mountain Colors (Turn blue on hover)
+  // Soft Blue / White Mix Colors
+  const targetColor = new THREE.Color(0xaaddff); // Soft light blue
+  const whiteColor = new THREE.Color(0xffffff);
+
+  // Lerp Mountains (Soft Blue mix)
   mountainMaterials.forEach(mat => {
     if (isHovering) {
-      // Target Blue
-      mat.color.lerp(new THREE.Color(0x4da6ff), 0.1);
+      mat.color.lerp(targetColor, 0.05); // Smooth transition to blue
     } else {
-      // Target White
-      mat.color.lerp(new THREE.Color(0xffffff), 0.05);
+      mat.color.lerp(whiteColor, 0.05);  // Smooth transition back to white
     }
   });
+
+  // Lerp Logo (Soft Blue mix)
+  if (logo) {
+    logo.traverse((child) => {
+      if (child.isMesh && child.material) {
+        if (isHovering) {
+          child.material.color.lerp(targetColor, 0.05);
+          child.material.emissive = child.material.emissive || new THREE.Color(0x000000);
+          child.material.emissive.lerp(new THREE.Color(0x00eaff), 0.05); // Soft glow
+        } else {
+          child.material.color.lerp(whiteColor, 0.05);
+          if (child.material.emissive) {
+            child.material.emissive.lerp(new THREE.Color(0x000000), 0.05);
+          }
+        }
+      }
+    });
+  }
 }
 
 // ============ EVENTS ============
@@ -321,14 +359,13 @@ function setupEvents() {
 function animate() {
   requestAnimationFrame(animate);
   
-  // Logo Floating Animation
   if(logo) {
     logo.position.y = settings.logo.pos.y + Math.sin(clock.getElapsedTime() * 0.5) * 0.05;
   }
   
   updatePlexus();
   updateAnimation();
-  updateHoverEffects(); // Added hover update here
+  updateHoverEffects();
   
   composer.render();
 }
