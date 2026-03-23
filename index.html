@@ -22,7 +22,6 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #ffffff; }
     
-    /* FIXED: Better hover effects */
     .glass-btn {
       position: relative;
       padding: 14px 28px;
@@ -43,23 +42,18 @@
       z-index: 102;
     }
     
-    /* FIXED: Stronger hover effect */
     .glass-btn:hover {
-      background: rgba(0, 234, 255, 0.25) !important;
+      background: rgba(0, 234, 255, 0.3) !important;
       transform: translateY(-5px) scale(1.08) !important;
-      box-shadow: 0 0 50px rgba(0, 234, 255, 1), inset 0 0 40px rgba(0, 234, 255, 0.4) !important;
+      box-shadow: 0 0 60px rgba(0, 234, 255, 1), inset 0 0 50px rgba(0, 234, 255, 0.5) !important;
       border-color: rgba(0, 234, 255, 1) !important;
       color: #ffffff !important;
-      text-shadow: 0 0 10px rgba(0, 234, 255, 1) !important;
-    }
-    
-    .glass-btn:active {
-      transform: translateY(-2px) scale(1.05) !important;
+      text-shadow: 0 0 15px rgba(0, 234, 255, 1) !important;
     }
     
     .glass-btn.active {
-      background: rgba(0, 234, 255, 0.3) !important;
-      box-shadow: 0 0 70px rgba(0, 234, 255, 1), inset 0 0 50px rgba(0, 234, 255, 0.5) !important;
+      background: rgba(0, 234, 255, 0.35) !important;
+      box-shadow: 0 0 80px rgba(0, 234, 255, 1), inset 0 0 60px rgba(0, 234, 255, 0.6) !important;
       border-color: #00eaff !important;
     }
     
@@ -105,23 +99,17 @@
 
   <div id="canvas-container" class="fixed inset-0 z-10"></div>
 
-  <!-- Path Buttons -->
-  <div id="path-buttons" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] z-[100]" style="pointer-events: auto;">
-    <!-- Buttons injected by JS -->
-  </div>
+  <div id="path-buttons" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] z-[100]" style="pointer-events: auto;"></div>
 
-  <!-- Back Button -->
   <button id="back-btn" class="fixed bottom-20 right-8 px-8 py-4 text-sm font-bold text-cyan-400 uppercase tracking-wider bg-black/40 backdrop-blur-xl border-2 border-cyan-400/50 rounded-xl opacity-0 transition-all duration-500 hover:bg-cyan-400/20 hover:scale-105 z-[100]" style="pointer-events: none;">
     ← Back to Start
   </button>
 
-  <!-- Slogan -->
   <div class="fixed top-8 left-8 text-cyan-400/70 text-xs tracking-widest italic z-[100]" style="pointer-events: none; text-shadow: 0 0 10px rgba(0,234,255,0.5);">
     <div class="mb-2">"We find and build what others can't.</div>
     <div>We break what others trust."</div>
   </div>
 
-  <!-- Keyboard Hint -->
   <div class="fixed bottom-8 right-8 px-6 py-4 bg-black/60 backdrop-blur-md rounded-lg text-xs text-gray-400 z-[100]" style="pointer-events: none;">
     Press <kbd class="px-3 py-2 bg-cyan-400/20 border border-cyan-400/50 rounded text-cyan-400 font-mono font-bold">R</kbd> to reset
   </div>
@@ -130,10 +118,16 @@
     (function() {
       'use strict';
       
-      let scene, camera, renderer, composer;
+      let scene, camera, renderer, composer, bloomPass;
       let mountains = null, logo = null;
       let isAnimating = false;
       let plexusGroup, plexusPoints = [], plexusLines = null;
+      
+      // Hover state
+      let isHoveringLogo = false;
+      let isHoveringButtons = false;
+      let logoMaterials = [];
+      let raycaster, mouse;
 
       const HOME = { 
         x: -0.51, y: 2.14, z: 10.47, 
@@ -166,7 +160,7 @@
         
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0xffffff);
-        scene.fog = new THREE.FogExp2(0xffffff, 0.01);
+        scene.fog = new THREE.FogExp2(0xffffff, 0.02);
 
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         setCamera(HOME.x, HOME.y, HOME.z, HOME.h, HOME.v);
@@ -175,18 +169,24 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 0.5;
+        renderer.toneMappingExposure = 0.6;
         renderer.shadowMap.enabled = true;
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
+        // Post-processing with bloom
         composer = new THREE.EffectComposer(renderer);
         composer.addPass(new THREE.RenderPass(scene, camera));
-        const bloomPass = new THREE.UnrealBloomPass(
+        
+        // FIXED: Stronger bloom effect
+        bloomPass = new THREE.UnrealBloomPass(
           new THREE.Vector2(window.innerWidth, window.innerHeight), 
-          0.3, 0.4, 0.1
+          0.5,  // strength (increased from 0.3)
+          0.4,  // radius
+          0.1   // threshold
         );
         composer.addPass(bloomPass);
 
+        // Lights
         scene.add(new THREE.AmbientLight(0xffffff, 0.5));
         const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
         mainLight.position.set(5, 10, 5);
@@ -196,6 +196,10 @@
         const logoLight = new THREE.PointLight(0x4da6ff, 0.5, 20);
         logoLight.position.set(-0.6, 2, 8.2);
         scene.add(logoLight);
+
+        // Raycaster for hover detection
+        raycaster = new THREE.Raycaster();
+        mouse = new THREE.Vector2();
 
         loadModels();
         setupPlexus();
@@ -247,8 +251,22 @@
             logo.scale.set(0.8, 0.8, 0.72);
             logo.rotation.set(0, 0, 2 * Math.PI / 180);
             logo.castShadow = true;
+            
+            // FIXED: Get all materials from logo for hover effect
+            logo.traverse((child) => {
+              if (child.isMesh && child.material) {
+                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                materials.forEach(mat => {
+                  logoMaterials.push(mat);
+                  // Enable emissive for glow effect
+                  if (!mat.emissive) mat.emissive = new THREE.Color(0x000000);
+                  mat.emissiveIntensity = 0;
+                });
+              }
+            });
+            
             scene.add(logo);
-            console.log('✅ Logo loaded');
+            console.log('✅ Logo loaded with', logoMaterials.length, 'materials');
           },
           undefined,
           (e) => console.error('❌ Logo error:', e)
@@ -301,9 +319,12 @@
       }
 
       function updatePlexus() {
+        const isHovering = isHoveringLogo || isHoveringButtons;
+        const targetOpacity = isHovering ? 0.8 : 0.3;
+        
         plexusPoints.forEach(sprite => {
           sprite.position.lerp(sprite.userData.targetPos, 0.03);
-          sprite.material.opacity += (0.3 - sprite.material.opacity) * 0.03;
+          sprite.material.opacity += (targetOpacity - sprite.material.opacity) * 0.03;
         });
         
         if (plexusLines && plexusPoints.length > 1) {
@@ -320,8 +341,37 @@
             }
           }
           plexusLines.geometry.attributes.position.needsUpdate = true;
-          plexusLines.material.opacity += (0.1 - plexusLines.material.opacity) * 0.03;
+          const targetLineOpacity = isHovering ? 0.4 : 0.1;
+          plexusLines.material.opacity += (targetLineOpacity - plexusLines.material.opacity) * 0.03;
         }
+      }
+
+      // FIXED: Update hover effects with bloom
+      function updateHoverEffects() {
+        const isHovering = isHoveringLogo || isHoveringButtons;
+        const targetBloom = isHovering ? 0.8 : 0.5;
+        const targetEmissive = isHovering ? 2.0 : 0.0;
+        const targetLightIntensity = isHovering ? 1.5 : 0.5;
+        
+        // Update bloom strength
+        if (bloomPass) {
+          bloomPass.strength += (targetBloom - bloomPass.strength) * 0.05;
+        }
+        
+        // Update logo materials emissive (glow)
+        logoMaterials.forEach(mat => {
+          if (mat.emissive) {
+            mat.emissive.setHex(0x4da6ff);
+            mat.emissiveIntensity += (targetEmissive - mat.emissiveIntensity) * 0.05;
+          }
+        });
+        
+        // Update logo light
+        scene.children.forEach(child => {
+          if (child.isPointLight && child.color.getHex() === 0x4da6ff) {
+            child.intensity += (targetLightIntensity - child.intensity) * 0.05;
+          }
+        });
       }
 
       function setupUI() {
@@ -376,6 +426,27 @@
           composer.setSize(window.innerWidth, window.innerHeight);
         });
 
+        // FIXED: Mouse move for logo hover detection
+        window.addEventListener('mousemove', (event) => {
+          // Normalize mouse coordinates
+          mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+          mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+          
+          // Raycast to detect logo hover
+          if (logo) {
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(logo, true);
+            
+            const wasHovering = isHoveringLogo;
+            isHoveringLogo = intersects.length > 0;
+            
+            if (isHoveringLogo !== wasHovering) {
+              document.body.style.cursor = isHoveringLogo ? 'pointer' : 'default';
+              console.log('🎯 Logo hover:', isHoveringLogo);
+            }
+          }
+        });
+
         const backBtn = document.getElementById('back-btn');
         if (backBtn) {
           backBtn.style.pointerEvents = 'auto';
@@ -384,7 +455,10 @@
             resetToHome();
           });
           backBtn.addEventListener('mouseenter', () => {
-            console.log('👆 Back button hover');
+            isHoveringButtons = true;
+          });
+          backBtn.addEventListener('mouseleave', () => {
+            isHoveringButtons = false;
           });
         }
         
@@ -401,19 +475,13 @@
             });
             
             btn.addEventListener('mouseenter', () => {
+              isHoveringButtons = true;
               console.log(`👆 Path ${i} hover start`);
-              btn.style.background = 'rgba(0, 234, 255, 0.3)';
-              btn.style.transform = 'translateY(-5px) scale(1.08)';
-              btn.style.boxShadow = '0 0 50px rgba(0, 234, 255, 1), inset 0 0 40px rgba(0, 234, 255, 0.4)';
             });
             
             btn.addEventListener('mouseleave', () => {
+              isHoveringButtons = false;
               console.log(`👇 Path ${i} hover end`);
-              if (!btn.classList.contains('active')) {
-                btn.style.background = 'rgba(0, 234, 255, 0.08)';
-                btn.style.transform = 'translateY(0) scale(1)';
-                btn.style.boxShadow = '0 0 25px rgba(0, 234, 255, 0.4), inset 0 0 25px rgba(0, 234, 255, 0.15)';
-              }
             });
           } else {
             console.error(`❌ Button ${i} not found!`);
@@ -489,7 +557,6 @@
         animate();
       }
 
-      // FIXED: Smoother, slower return that faces the logo
       function resetToHome() {
         if (isAnimating) return;
         
@@ -508,7 +575,6 @@
         const startZ = camera.position.z;
         const startTime = performance.now();
         
-        // FIXED: Slower duration (20 seconds instead of 12)
         const duration = 20000;
         
         function animate() {
@@ -522,7 +588,6 @@
           camera.position.y = startY + (HOME.y - startY) * eased;
           camera.position.z = startZ + (HOME.z - startZ) * eased;
           
-          // FIXED: Always look at the logo during return
           if (logo) {
             camera.lookAt(logo.position);
           }
@@ -532,8 +597,6 @@
           } else {
             console.log('✅ Home reached');
             isAnimating = false;
-            
-            // Set exact home position and look direction
             setCamera(HOME.x, HOME.y, HOME.z, HOME.h, HOME.v);
             
             const buttons = document.getElementById('path-buttons');
@@ -555,6 +618,7 @@
         }
         
         updatePlexus();
+        updateHoverEffects(); // FIXED: Update hover effects every frame
         composer.render();
       }
 
