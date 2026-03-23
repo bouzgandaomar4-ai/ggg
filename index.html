@@ -4,8 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Offensive Bloom - Ice Mountain 3D</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Three.js from CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
@@ -18,308 +21,521 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #ffffff; }
+    
     .glass-btn {
-      position: relative; padding: 10px 20px; font-size: 11px; font-weight: 600;
-      color: #00eaff; text-transform: uppercase; letter-spacing: 1.5px; cursor: pointer;
-      background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(16px);
-      border: 1px solid rgba(0, 234, 255, 0.4); border-radius: 12px; overflow: hidden;
-      transition: all 0.5s; box-shadow: 0 8px 32px rgba(0,0,0,0.2), 0 0 20px rgba(0,234,255,0.2);
+      position: relative;
+      padding: 12px 24px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #00eaff;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      cursor: pointer;
+      background: rgba(0, 234, 255, 0.05);
+      backdrop-filter: blur(16px);
+      border: 2px solid rgba(0, 234, 255, 0.5);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: all 0.4s ease;
+      box-shadow: 0 0 20px rgba(0, 234, 255, 0.3), inset 0 0 20px rgba(0, 234, 255, 0.1);
+      pointer-events: auto !important;
     }
-    .glass-btn:hover { background: rgba(0,234,255,0.12); transform: translateY(-3px) scale(1.05); }
-    .glass-btn.active { background: rgba(0,234,255,0.18); box-shadow: 0 0 50px rgba(0,234,255,1); }
-    .path-line { stroke: #00eaff; stroke-width: 1.5; stroke-dasharray: 5, 5; animation: dash 20s linear infinite; }
+    
+    .glass-btn:hover {
+      background: rgba(0, 234, 255, 0.2);
+      transform: translateY(-4px) scale(1.05);
+      box-shadow: 0 0 40px rgba(0, 234, 255, 0.8), inset 0 0 30px rgba(0, 234, 255, 0.3);
+      border-color: rgba(0, 234, 255, 0.9);
+    }
+    
+    .glass-btn.active {
+      background: rgba(0, 234, 255, 0.25);
+      box-shadow: 0 0 60px rgba(0, 234, 255, 1), inset 0 0 40px rgba(0, 234, 255, 0.4);
+      border-color: #00eaff;
+    }
+    
+    .path-line {
+      stroke: #00eaff;
+      stroke-width: 2;
+      stroke-dasharray: 5, 5;
+      animation: dash 20s linear infinite;
+      filter: drop-shadow(0 0 8px rgba(0, 234, 255, 0.8));
+    }
+    
     @keyframes dash { to { stroke-dashoffset: 100; } }
-    .path-dot { fill: #00eaff; filter: drop-shadow(0 0 8px rgba(0,234,255,1)); }
+    
+    .path-dot {
+      fill: #00eaff;
+      filter: drop-shadow(0 0 10px rgba(0, 234, 255, 1));
+    }
+    
     @keyframes typewriter { 0% { width: 0; } 100% { width: 100%; } }
     @keyframes blink { 0%, 100% { border-color: transparent; } 50% { border-color: #00eaff; } }
     @keyframes fadeOut { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
-    .animate-type { animation: typewriter 3.5s steps(30) forwards, blink 0.75s step-end infinite, fadeOut 1s ease 5s forwards; }
+    
+    .animate-type {
+      animation: typewriter 3.5s steps(30) forwards, blink 0.75s step-end infinite, fadeOut 1s ease 5s forwards;
+    }
   </style>
 </head>
 <body class="overflow-hidden">
-  <div id="loader" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+  <div id="loader" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 to-black transition-opacity duration-1000">
     <div class="text-center">
-      <div class="font-mono text-4xl font-bold text-cyan-400 mb-5">---===+++===---</div>
+      <div class="font-mono text-4xl font-bold text-cyan-400 mb-5" style="text-shadow: 0 0 20px rgba(0,212,255,0.8)">---===+++===---</div>
       <div class="text-lg text-gray-400 tracking-widest uppercase mb-2">Loading...</div>
       <div id="loading-status" class="text-sm text-cyan-400 opacity-70">Initializing...</div>
     </div>
   </div>
 
-  <div id="welcome-overlay" class="fixed inset-0 z-[10001] flex items-center justify-center bg-black/95">
+  <div id="welcome-overlay" class="fixed inset-0 z-[10001] flex items-center justify-center bg-black/95 transition-opacity duration-1500">
     <div class="text-center">
-      <div class="font-mono text-6xl font-bold text-cyan-400 tracking-widest overflow-hidden whitespace-nowrap border-r-4 border-cyan-400 animate-type">WELCOME TO OFFENSIVE BLOOM</div>
-      <div class="font-mono text-sm text-cyan-400/60 tracking-widest mt-8">SECURE ELEMENTS INITIALIZING...</div>
+      <div class="font-mono text-6xl font-bold text-cyan-400 tracking-widest overflow-hidden whitespace-nowrap border-r-4 border-cyan-400 animate-type" style="text-shadow: 0 0 30px rgba(0,234,255,1)">WELCOME TO OFFENSIVE BLOOM</div>
+      <div class="font-mono text-sm text-cyan-400/60 tracking-widest mt-8 animate-pulse">SECURE ELEMENTS INITIALIZING...</div>
     </div>
   </div>
 
   <div id="canvas-container" class="fixed inset-0 z-10"></div>
 
-  <div id="ui-container" class="fixed inset-0 z-100 pointer-events-none">
-    <div id="path-buttons" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[250px]"></div>
-    <button id="back-btn" class="absolute bottom-16 right-5 px-6 py-3 text-sm font-semibold text-cyan-400 uppercase bg-white/5 backdrop-blur-xl border border-cyan-400/50 rounded-xl opacity-0 pointer-events-none transition-all hover:bg-cyan-400/15">← Back to Start</button>
-    <div class="absolute top-5 left-5 text-cyan-400/70 text-xs tracking-widest italic">
-      <div class="mb-1">"We find and build what others can't.</div>
-      <div>We break what others trust."</div>
-    </div>
-    <div class="absolute bottom-5 right-5 px-4 py-3 bg-black/60 backdrop-blur-md rounded-lg text-xs text-gray-400">Press <kbd class="px-2 py-1 bg-cyan-400/20 border border-cyan-400/30 rounded text-cyan-400">R</kbd> to reset</div>
+  <!-- Path Buttons - FIXED: pointer-events-auto -->
+  <div id="path-buttons" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] z-[100] pointer-events-auto" style="pointer-events: auto;">
+    <!-- Buttons will be injected here -->
+  </div>
+
+  <!-- Back Button -->
+  <button id="back-btn" class="fixed bottom-20 right-8 px-8 py-4 text-sm font-bold text-cyan-400 uppercase tracking-wider bg-black/40 backdrop-blur-xl border-2 border-cyan-400/50 rounded-xl opacity-0 pointer-events-none transition-all duration-500 hover:bg-cyan-400/20 hover:scale-105 z-[100]" style="pointer-events: none;">
+    ← Back to Start
+  </button>
+
+  <!-- Slogan -->
+  <div class="fixed top-8 left-8 text-cyan-400/70 text-xs tracking-widest italic z-[100] pointer-events-none" style="text-shadow: 0 0 10px rgba(0,234,255,0.5); pointer-events: none;">
+    <div class="mb-2">"We find and build what others can't.</div>
+    <div>We break what others trust."</div>
+  </div>
+
+  <!-- Keyboard Hint -->
+  <div class="fixed bottom-8 right-8 px-6 py-4 bg-black/60 backdrop-blur-md rounded-lg text-xs text-gray-400 z-[100] pointer-events-none" style="pointer-events: none;">
+    Press <kbd class="px-3 py-2 bg-cyan-400/20 border border-cyan-400/50 rounded text-cyan-400 font-mono font-bold">R</kbd> to reset
   </div>
 
   <script>
-    // Global variables
-    let scene, camera, renderer, composer, mountains = null, logo = null, isAnimating = false;
-    let plexusGroup, plexusPoints = [], plexusLines = null;
+    (function() {
+      'use strict';
+      
+      let scene, camera, renderer, composer;
+      let mountains = null, logo = null;
+      let isAnimating = false;
+      let plexusGroup, plexusPoints = [], plexusLines = null;
 
-    const HOME = { x: -0.51, y: 2.14, z: 10.47, h: 179.4 * (Math.PI / 180), v: -5.3 * (Math.PI / 180) };
-    const PATHS = {
-      1: { start: { ...HOME }, end: { x: -2.77, y: 2.64, z: 1.57, h: HOME.h, v: HOME.v } },
-      2: { start: { ...HOME }, end: { x: -0.66, y: 2.14, z: 10.35, h: HOME.h, v: HOME.v } },
-      3: { start: { ...HOME }, end: { x: -5.87, y: 2.14, z: 13.47, h: HOME.h, v: HOME.v } },
-      4: { start: { ...HOME }, end: { x: -0.61, y: 5.15, z: -7.06, h: HOME.h, v: HOME.v } }
-    };
+      const HOME = { 
+        x: -0.51, y: 2.14, z: 10.47, 
+        h: 179.4 * (Math.PI / 180), 
+        v: -5.3 * (Math.PI / 180) 
+      };
+      
+      const PATHS = {
+        1: { start: { ...HOME }, end: { x: -2.77, y: 2.64, z: 1.57, h: HOME.h, v: HOME.v } },
+        2: { start: { ...HOME }, end: { x: -0.66, y: 2.14, z: 10.35, h: HOME.h, v: HOME.v } },
+        3: { start: { ...HOME }, end: { x: -5.87, y: 2.14, z: 13.47, h: HOME.h, v: HOME.v } },
+        4: { start: { ...HOME }, end: { x: -0.61, y: 5.15, z: -7.06, h: HOME.h, v: HOME.v } }
+      };
 
-    function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
-
-    function setCamera(x, y, z, h, v) {
-      camera.position.set(x, y, z);
-      const dir = new THREE.Vector3();
-      dir.x = Math.sin(h) * Math.cos(v);
-      dir.y = Math.sin(v);
-      dir.z = Math.cos(h) * Math.cos(v);
-      camera.lookAt(x + dir.x, y + dir.y, z + dir.z);
-    }
-
-    function init() {
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0xffffff);
-      scene.fog = new THREE.FogExp2(0xffffff, 0.01);
-
-      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      setCamera(HOME.x, HOME.y, HOME.z, HOME.h, HOME.v);
-
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 0.5;
-      document.getElementById('canvas-container').appendChild(renderer.domElement);
-
-      composer = new THREE.EffectComposer(renderer);
-      composer.addPass(new THREE.RenderPass(scene, camera));
-      const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.2, 0.4, 0.1);
-      composer.addPass(bloomPass);
-
-      scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-      const mainLight = new THREE.DirectionalLight(0xffffff, 0.6);
-      mainLight.position.set(5, 10, 5);
-      scene.add(mainLight);
-      scene.add(new THREE.DirectionalLight(0x88ccff, 0.3));
-      scene.add(new THREE.PointLight(0x4da6ff, 0.3, 20));
-
-      loadModels();
-      setupPlexus();
-      setupUI();
-      setupEvents();
-
-      setTimeout(() => {
-        const loader = document.getElementById('loader');
-        if (loader) {
-          loader.style.opacity = '0';
-          setTimeout(() => {
-            loader.remove();
-            const welcome = document.getElementById('welcome-overlay');
-            if (welcome) {
-              setTimeout(() => { welcome.style.opacity = '0'; setTimeout(() => welcome.remove(), 1500); }, 3000);
-            }
-          }, 1000);
-        }
-      }, 500);
-
-      animate();
-    }
-
-    function loadModels() {
-      const loader = new THREE.GLTFLoader();
-      loader.load('https://bouzgandaomar4-ai.github.io/ggg/models/mountains.glb', (gltf) => {
-        mountains = gltf.scene;
-        mountains.position.set(-7.9, 4.9, 3.5);
-        mountains.scale.set(24, 57, 30);
-        mountains.rotation.set(0, 133 * Math.PI / 180, 0);
-        scene.add(mountains);
-      }, undefined, (e) => console.log('Mountains loading'));
-
-      loader.load('https://bouzgandaomar4-ai.github.io/ggg/models/white_mesh.glb', (gltf) => {
-        logo = gltf.scene;
-        logo.position.set(-0.6, 2.0, 8.2);
-        logo.scale.set(0.8, 0.8, 0.72);
-        logo.rotation.set(0, 0, 2 * Math.PI / 180);
-        scene.add(logo);
-      }, undefined, (e) => console.log('Logo loading'));
-    }
-
-    function setupPlexus() {
-      plexusGroup = new THREE.Group();
-      scene.add(plexusGroup);
-      for (let i = 0; i < 15; i++) {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = 32; canvas.height = 32;
-        ctx.fillStyle = 'rgba(0, 212, 255, 0.95)';
-        ctx.font = 'bold 20px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText((Math.floor(Math.random() * 9) + 1).toString(), 16, 16);
-        const texture = new THREE.CanvasTexture(canvas);
-        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0, color: 0x00d4ff }));
-        sprite.scale.set(0.05, 0.05, 1);
-        sprite.userData = {
-          targetPos: new THREE.Vector3(
-            -7.9 + Math.cos(Math.random() * Math.PI * 2) * 8 * (0.5 + Math.random() * 0.5),
-            4.9 + (Math.random() - 0.5) * 15,
-            3.5 + Math.sin(Math.random() * Math.PI * 2) * 8 * (0.5 + Math.random() * 0.5)
-          )
-        };
-        plexusGroup.add(sprite);
-        plexusPoints.push(sprite);
+      function easeInOutCubic(t) { 
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; 
       }
-      const lineGeometry = new THREE.BufferGeometry();
-      lineGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(15 * 15 * 6), 3));
-      plexusLines = new THREE.LineSegments(lineGeometry, new THREE.LineBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0 }));
-      plexusGroup.add(plexusLines);
-    }
 
-    function updatePlexus() {
-      plexusPoints.forEach(sprite => {
-        sprite.position.lerp(sprite.userData.targetPos, 0.03);
-        sprite.material.opacity += (0.3 - sprite.material.opacity) * 0.03;
-      });
-      if (plexusLines && plexusPoints.length > 1) {
-        const positions = plexusLines.geometry.attributes.position.array;
-        let index = 0;
-        for (let i = 0; i < plexusPoints.length; i++) {
-          for (let j = i + 1; j < plexusPoints.length; j++) {
-            const p1 = plexusPoints[i].position, p2 = plexusPoints[j].position;
-            if (p1.distanceTo(p2) < 10) {
-              positions[index++] = p1.x; positions[index++] = p1.y; positions[index++] = p1.z;
-              positions[index++] = p2.x; positions[index++] = p2.y; positions[index++] = p2.z;
+      function setCamera(x, y, z, h, v) {
+        camera.position.set(x, y, z);
+        const dir = new THREE.Vector3();
+        dir.x = Math.sin(h) * Math.cos(v);
+        dir.y = Math.sin(v);
+        dir.z = Math.cos(h) * Math.cos(v);
+        camera.lookAt(x + dir.x, y + dir.y, z + dir.z);
+      }
+
+      function init() {
+        console.log('🚀 Initializing application...');
+        
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+        scene.fog = new THREE.FogExp2(0xffffff, 0.01);
+
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        setCamera(HOME.x, HOME.y, HOME.z, HOME.h, HOME.v);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 0.5;
+        renderer.shadowMap.enabled = true;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        composer = new THREE.EffectComposer(renderer);
+        composer.addPass(new THREE.RenderPass(scene, camera));
+        const bloomPass = new THREE.UnrealBloomPass(
+          new THREE.Vector2(window.innerWidth, window.innerHeight), 
+          0.3, 0.4, 0.1
+        );
+        composer.addPass(bloomPass);
+
+        // Lights
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        mainLight.position.set(5, 10, 5);
+        mainLight.castShadow = true;
+        scene.add(mainLight);
+        scene.add(new THREE.DirectionalLight(0x88ccff, 0.4));
+        const logoLight = new THREE.PointLight(0x4da6ff, 0.5, 20);
+        logoLight.position.set(-0.6, 2, 8.2);
+        scene.add(logoLight);
+
+        loadModels();
+        setupPlexus();
+        setupUI();
+        setupEvents();
+
+        // Hide loader
+        setTimeout(() => {
+          const loader = document.getElementById('loader');
+          if (loader) {
+            loader.style.opacity = '0';
+            setTimeout(() => {
+              loader.remove();
+              const welcome = document.getElementById('welcome-overlay');
+              if (welcome) {
+                setTimeout(() => { 
+                  welcome.style.opacity = '0'; 
+                  setTimeout(() => welcome.remove(), 1500); 
+                }, 3000);
+              }
+            }, 1000);
+          }
+        }, 500);
+
+        animate();
+      }
+
+      function loadModels() {
+        const loader = new THREE.GLTFLoader();
+        
+        loader.load(
+          'https://bouzgandaomar4-ai.github.io/ggg/models/mountains.glb?v=' + Date.now(), 
+          (gltf) => {
+            mountains = gltf.scene;
+            mountains.position.set(-7.9, 4.9, 3.5);
+            mountains.scale.set(24, 57, 30);
+            mountains.rotation.set(0, 133 * Math.PI / 180, 0);
+            scene.add(mountains);
+            console.log('✅ Mountains loaded');
+          },
+          undefined,
+          (e) => console.error('❌ Mountains error:', e)
+        );
+
+        loader.load(
+          'https://bouzgandaomar4-ai.github.io/ggg/models/white_mesh.glb?v=' + Date.now(), 
+          (gltf) => {
+            logo = gltf.scene;
+            logo.position.set(-0.6, 2.0, 8.2);
+            logo.scale.set(0.8, 0.8, 0.72);
+            logo.rotation.set(0, 0, 2 * Math.PI / 180);
+            logo.castShadow = true;
+            scene.add(logo);
+            console.log('✅ Logo loaded');
+          },
+          undefined,
+          (e) => console.error('❌ Logo error:', e)
+        );
+      }
+
+      function setupPlexus() {
+        plexusGroup = new THREE.Group();
+        scene.add(plexusGroup);
+        
+        for (let i = 0; i < 15; i++) {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = 32; 
+          canvas.height = 32;
+          ctx.fillStyle = 'rgba(0, 212, 255, 0.95)';
+          ctx.font = 'bold 20px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText((Math.floor(Math.random() * 9) + 1).toString(), 16, 16);
+          
+          const texture = new THREE.CanvasTexture(canvas);
+          const sprite = new THREE.Sprite(
+            new THREE.SpriteMaterial({ 
+              map: texture, 
+              transparent: true, 
+              opacity: 0, 
+              color: 0x00d4ff 
+            })
+          );
+          sprite.scale.set(0.05, 0.05, 1);
+          sprite.userData = {
+            targetPos: new THREE.Vector3(
+              -7.9 + Math.cos(Math.random() * Math.PI * 2) * 8 * (0.5 + Math.random() * 0.5),
+              4.9 + (Math.random() - 0.5) * 15,
+              3.5 + Math.sin(Math.random() * Math.PI * 2) * 8 * (0.5 + Math.random() * 0.5)
+            )
+          };
+          plexusGroup.add(sprite);
+          plexusPoints.push(sprite);
+        }
+        
+        const lineGeometry = new THREE.BufferGeometry();
+        lineGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(15 * 15 * 6), 3));
+        plexusLines = new THREE.LineSegments(
+          lineGeometry, 
+          new THREE.LineBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0 })
+        );
+        plexusGroup.add(plexusLines);
+      }
+
+      function updatePlexus() {
+        plexusPoints.forEach(sprite => {
+          sprite.position.lerp(sprite.userData.targetPos, 0.03);
+          sprite.material.opacity += (0.3 - sprite.material.opacity) * 0.03;
+        });
+        
+        if (plexusLines && plexusPoints.length > 1) {
+          const positions = plexusLines.geometry.attributes.position.array;
+          let index = 0;
+          for (let i = 0; i < plexusPoints.length; i++) {
+            for (let j = i + 1; j < plexusPoints.length; j++) {
+              const p1 = plexusPoints[i].position;
+              const p2 = plexusPoints[j].position;
+              if (p1.distanceTo(p2) < 10) {
+                positions[index++] = p1.x; positions[index++] = p1.y; positions[index++] = p1.z;
+                positions[index++] = p2.x; positions[index++] = p2.y; positions[index++] = p2.z;
+              }
+            }
+          }
+          plexusLines.geometry.attributes.position.needsUpdate = true;
+          plexusLines.material.opacity += (0.1 - plexusLines.material.opacity) * 0.03;
+        }
+      }
+
+      function setupUI() {
+        console.log('🔘 Setting up UI buttons...');
+        const container = document.getElementById('path-buttons');
+        if (!container) {
+          console.error('❌ Path buttons container not found!');
+          return;
+        }
+        
+        // Make sure container accepts pointer events
+        container.style.pointerEvents = 'auto';
+        container.style.opacity = '1';
+        container.style.zIndex = '100';
+        
+        const positions = [
+          { top: '15%', left: '-150px' },
+          { top: '65%', left: '-130px' },
+          { top: '15%', right: '-130px' },
+          { top: '65%', right: '-150px' }
+        ];
+        
+        for (let i = 1; i <= 4; i++) {
+          const node = document.createElement('div');
+          node.style.cssText = 'position: absolute; pointer-events: auto; z-index: 101;';
+          
+          if (positions[i-1].top) node.style.top = positions[i-1].top;
+          if (positions[i-1].left) node.style.left = positions[i-1].left;
+          if (positions[i-1].right) node.style.right = positions[i-1].right;
+          
+          node.innerHTML = `
+            <svg style="position: absolute; width: 180px; height: 140px; top: -60px; left: -60px; pointer-events: none; opacity: 0.6;">
+              <line class="path-line" x1="150" y1="80" x2="60" y2="40"/>
+              <circle class="path-dot" cx="60" cy="40" r="5"/>
+            </svg>
+            <button id="path-btn-${i}" class="glass-btn" style="pointer-events: auto !important; cursor: pointer; z-index: 102;">
+              Path ${i}
+            </button>
+          `;
+          
+          container.appendChild(node);
+          console.log(`✅ Button ${i} created`);
+        }
+      }
+
+      function setupEvents() {
+        console.log('🎮 Setting up event listeners...');
+        
+        window.addEventListener('resize', () => {
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        const backBtn = document.getElementById('back-btn');
+        if (backBtn) {
+          backBtn.style.pointerEvents = 'auto';
+          backBtn.addEventListener('click', () => {
+            console.log('🔙 Back button clicked');
+            resetToHome();
+          });
+        }
+        
+        for (let i = 1; i <= 4; i++) {
+          const btn = document.getElementById(`path-btn-${i}`);
+          if (btn) {
+            btn.style.pointerEvents = 'auto';
+            btn.style.cursor = 'pointer';
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              console.log(`🎯 Path ${i} button clicked`);
+              travelTo(i);
+            });
+            btn.addEventListener('mouseenter', () => {
+              console.log(`👆 Path ${i} hover start`);
+            });
+            btn.addEventListener('mouseleave', () => {
+              console.log(`👇 Path ${i} hover end`);
+            });
+          } else {
+            console.error(`❌ Button ${i} not found!`);
+          }
+        }
+
+        document.addEventListener('keydown', (e) => {
+          if (e.key.toLowerCase() === 'r') {
+            console.log('🔄 Reset key pressed');
+            resetToHome();
+          }
+        });
+      }
+
+      function travelTo(pathNumber) {
+        if (isAnimating) {
+          console.log('⏸️ Already animating, ignoring click');
+          return;
+        }
+        
+        console.log(`🚀 Starting travel to Path ${pathNumber}`);
+        const path = PATHS[pathNumber];
+        isAnimating = true;
+        
+        const buttons = document.getElementById('path-buttons');
+        if (buttons) {
+          buttons.style.opacity = '0';
+          buttons.style.pointerEvents = 'none';
+        }
+        
+        const backBtn = document.getElementById('back-btn');
+        if (backBtn) {
+          backBtn.classList.remove('opacity-100', 'pointer-events-auto');
+          backBtn.classList.add('opacity-0', 'pointer-events-none');
+          backBtn.style.pointerEvents = 'none';
+        }
+        
+        const startX = camera.position.x;
+        const startY = camera.position.y;
+        const startZ = camera.position.z;
+        const startTime = performance.now();
+        
+        function animate() {
+          if (!isAnimating) return;
+          
+          const elapsed = performance.now() - startTime;
+          const progress = Math.min(elapsed / 10000, 1);
+          const eased = easeInOutCubic(progress);
+          
+          camera.position.x = path.start.x + (path.end.x - path.start.x) * eased;
+          camera.position.y = path.start.y + (path.end.y - path.start.y) * eased;
+          camera.position.z = path.start.z + (path.end.z - path.start.z) * eased;
+          
+          const h = path.start.h + (path.end.h - path.start.h) * eased;
+          const v = path.start.v + (path.end.v - path.start.v) * eased;
+          setCamera(camera.position.x, camera.position.y, camera.position.z, h, v);
+          
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            console.log('✅ Path animation complete');
+            isAnimating = false;
+            setTimeout(() => {
+              if (backBtn) {
+                backBtn.classList.remove('opacity-0', 'pointer-events-none');
+                backBtn.classList.add('opacity-100', 'pointer-events-auto');
+                backBtn.style.pointerEvents = 'auto';
+              }
+            }, 500);
+          }
+        }
+        
+        animate();
+      }
+
+      function resetToHome() {
+        if (isAnimating) return;
+        
+        console.log('🏠 Resetting to home position');
+        isAnimating = true;
+        
+        const backBtn = document.getElementById('back-btn');
+        if (backBtn) {
+          backBtn.classList.remove('opacity-100', 'pointer-events-auto');
+          backBtn.classList.add('opacity-0', 'pointer-events-none');
+          backBtn.style.pointerEvents = 'none';
+        }
+        
+        const startX = camera.position.x;
+        const startY = camera.position.y;
+        const startZ = camera.position.z;
+        const startTime = performance.now();
+        
+        function animate() {
+          if (!isAnimating) return;
+          
+          const elapsed = performance.now() - startTime;
+          const progress = Math.min(elapsed / 12000, 1);
+          const eased = easeInOutCubic(progress);
+          
+          camera.position.x = startX + (HOME.x - startX) * eased;
+          camera.position.y = startY + (HOME.y - startY) * eased;
+          camera.position.z = startZ + (HOME.z - startZ) * eased;
+          
+          const h = HOME.h * eased;
+          const v = HOME.v * eased;
+          setCamera(camera.position.x, camera.position.y, camera.position.z, h, v);
+          
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            console.log('✅ Reset complete');
+            isAnimating = false;
+            const buttons = document.getElementById('path-buttons');
+            if (buttons) {
+              buttons.style.opacity = '1';
+              buttons.style.pointerEvents = 'auto';
             }
           }
         }
-        plexusLines.geometry.attributes.position.needsUpdate = true;
-        plexusLines.material.opacity += (0.1 - plexusLines.material.opacity) * 0.03;
+        
+        animate();
       }
-    }
 
-    function setupUI() {
-      const container = document.getElementById('path-buttons');
-      if (!container) return;
-      const positions = [
-        { top: '15%', left: '-120px' },
-        { top: '65%', left: '-100px' },
-        { top: '15%', right: '-100px' },
-        { top: '65%', right: '-120px' }
-      ];
-      for (let i = 1; i <= 4; i++) {
-        const node = document.createElement('div');
-        node.style.cssText = 'position:absolute;pointer-events:auto;';
-        node.style.top = positions[i-1].top || '';
-        if (positions[i-1].left) node.style.left = positions[i-1].left;
-        if (positions[i-1].right) node.style.right = positions[i-1].right;
-        node.innerHTML = `
-          <svg style="position:absolute;width:150px;height:120px;top:-50px;left:-50px;pointer-events:none;opacity:0.7">
-            <line class="path-line" x1="130" y1="70" x2="50" y2="40"/>
-            <circle class="path-dot" cx="50" cy="40" r="4"/>
-          </svg>
-          <button id="path-btn-${i}" class="glass-btn">Path ${i}</button>
-        `;
-        container.appendChild(node);
-      }
-    }
-
-    function setupEvents() {
-      window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        composer.setSize(window.innerWidth, window.innerHeight);
-      });
-      const backBtn = document.getElementById('back-btn');
-      if (backBtn) backBtn.addEventListener('click', () => resetToHome());
-      for (let i = 1; i <= 4; i++) {
-        const btn = document.getElementById(`path-btn-${i}`);
-        if (btn) btn.addEventListener('click', () => travelTo(i));
-      }
-      document.addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 'r') resetToHome(); });
-    }
-
-    function travelTo(pathNumber) {
-      if (isAnimating) return;
-      const path = PATHS[pathNumber];
-      isAnimating = true;
-      const buttons = document.getElementById('path-buttons');
-      if (buttons) { buttons.style.opacity = '0'; buttons.style.pointerEvents = 'none'; }
-      const backBtn = document.getElementById('back-btn');
-      if (backBtn) { backBtn.classList.remove('opacity-100', 'pointer-events-auto'); backBtn.classList.add('opacity-0', 'pointer-events-none'); }
-      const startX = camera.position.x, startY = camera.position.y, startZ = camera.position.z;
-      const startTime = performance.now();
       function animate() {
-        if (!isAnimating) return;
-        const elapsed = performance.now() - startTime;
-        const progress = Math.min(elapsed / 10000, 1);
-        const eased = easeInOutCubic(progress);
-        camera.position.x = path.start.x + (path.end.x - path.start.x) * eased;
-        camera.position.y = path.start.y + (path.end.y - path.start.y) * eased;
-        camera.position.z = path.start.z + (path.end.z - path.start.z) * eased;
-        const h = path.start.h + (path.end.h - path.start.h) * eased;
-        const v = path.start.v + (path.end.v - path.start.v) * eased;
-        setCamera(camera.position.x, camera.position.y, camera.position.z, h, v);
-        if (progress < 1) { requestAnimationFrame(animate); }
-        else {
-          isAnimating = false;
-          setTimeout(() => {
-            if (backBtn) { backBtn.classList.remove('opacity-0', 'pointer-events-none'); backBtn.classList.add('opacity-100', 'pointer-events-auto'); }
-          }, 500);
+        requestAnimationFrame(animate);
+        
+        if (logo) {
+          logo.position.y = 2.0 + Math.sin(Date.now() * 0.0008) * 0.05;
         }
+        
+        updatePlexus();
+        composer.render();
       }
-      animate();
-    }
 
-    function resetToHome() {
-      if (isAnimating) return;
-      isAnimating = true;
-      const backBtn = document.getElementById('back-btn');
-      if (backBtn) { backBtn.classList.remove('opacity-100', 'pointer-events-auto'); backBtn.classList.add('opacity-0', 'pointer-events-none'); }
-      const startX = camera.position.x, startY = camera.position.y, startZ = camera.position.z;
-      const startTime = performance.now();
-      function animate() {
-        if (!isAnimating) return;
-        const elapsed = performance.now() - startTime;
-        const progress = Math.min(elapsed / 12000, 1);
-        const eased = easeInOutCubic(progress);
-        camera.position.x = startX + (HOME.x - startX) * eased;
-        camera.position.y = startY + (HOME.y - startY) * eased;
-        camera.position.z = startZ + (HOME.z - startZ) * eased;
-        const h = HOME.h * eased, v = HOME.v * eased;
-        setCamera(camera.position.x, camera.position.y, camera.position.z, h, v);
-        if (progress < 1) { requestAnimationFrame(animate); }
-        else {
-          isAnimating = false;
-          const buttons = document.getElementById('path-buttons');
-          if (buttons) { buttons.style.opacity = '1'; buttons.style.pointerEvents = 'auto'; }
-        }
+      // Start when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
       }
-      animate();
-    }
-
-    function animate() {
-      requestAnimationFrame(animate);
-      if (logo) logo.position.y = 2.0 + Math.sin(Date.now() * 0.0008) * 0.05;
-      updatePlexus();
-      composer.render();
-    }
-
-    // Start when DOM is ready
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-    else init();
+    })();
   </script>
 </body>
 </html>
