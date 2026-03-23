@@ -9,14 +9,14 @@
   <meta http-equiv="Expires" content="0" />
   
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js?v=2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js?v=2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js?v=2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js?v=2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js?v=2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js?v=2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js?v=2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js?v=2"></script>
   
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -121,8 +121,6 @@
       let mountains = null, logo = null;
       let isAnimating = false;
       let plexusGroup, plexusPoints = [], plexusLines = null;
-      
-      // Hover state - FIXED
       let isHovering = false;
       let raycaster, mouse;
       let lastHoverCheck = 0;
@@ -154,8 +152,6 @@
       }
 
       function init() {
-        console.log('🚀 Initializing...');
-        
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0xffffff);
         scene.fog = new THREE.FogExp2(0xffffff, 0.015);
@@ -171,17 +167,14 @@
         renderer.shadowMap.enabled = true;
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-        // Post-processing - REDUCED BLOOM
         composer = new THREE.EffectComposer(renderer);
         composer.addPass(new THREE.RenderPass(scene, camera));
-        
         bloomPass = new THREE.UnrealBloomPass(
           new THREE.Vector2(window.innerWidth, window.innerHeight), 
           0.3, 0.5, 0.2
         );
         composer.addPass(bloomPass);
 
-        // Lights - REDUCED
         scene.add(new THREE.AmbientLight(0xffffff, 0.4));
         const mainLight = new THREE.DirectionalLight(0xffffff, 0.6);
         mainLight.position.set(5, 10, 5);
@@ -190,7 +183,6 @@
         logoLight.position.set(-0.6, 2, 8.2);
         scene.add(logoLight);
 
-        // Raycaster - FIXED
         raycaster = new THREE.Raycaster();
         mouse = new THREE.Vector2();
 
@@ -230,10 +222,9 @@
             mountains.scale.set(24, 57, 30);
             mountains.rotation.set(0, 133 * Math.PI / 180, 0);
             scene.add(mountains);
-            console.log('✅ Mountains loaded');
           },
           undefined,
-          (e) => console.error('❌ Mountains error:', e)
+          (e) => console.log('Mountains:', e.message)
         );
 
         loader.load(
@@ -244,15 +235,10 @@
             logo.scale.set(0.8, 0.8, 0.72);
             logo.rotation.set(0, 0, 2 * Math.PI / 180);
             logo.castShadow = true;
-            
-            // Store logo for hover detection
-            logo.userData = { isHoverable: true };
-            
             scene.add(logo);
-            console.log('✅ Logo loaded');
           },
           undefined,
-          (e) => console.error('❌ Logo error:', e)
+          (e) => console.log('Logo:', e.message)
         );
       }
 
@@ -263,8 +249,7 @@
         for (let i = 0; i < 15; i++) {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
-          canvas.width = 32; 
-          canvas.height = 32;
+          canvas.width = 32; canvas.height = 32;
           ctx.fillStyle = 'rgba(0, 212, 255, 0.95)';
           ctx.font = 'bold 20px Arial';
           ctx.textAlign = 'center';
@@ -273,12 +258,7 @@
           
           const texture = new THREE.CanvasTexture(canvas);
           const sprite = new THREE.Sprite(
-            new THREE.SpriteMaterial({ 
-              map: texture, 
-              transparent: true, 
-              opacity: 0, 
-              color: 0x00d4ff 
-            })
+            new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0, color: 0x00d4ff })
           );
           sprite.scale.set(0.05, 0.05, 1);
           sprite.userData = {
@@ -303,7 +283,6 @@
 
       function updatePlexus() {
         const targetOpacity = isHovering ? 0.8 : 0.3;
-        
         plexusPoints.forEach(sprite => {
           sprite.position.lerp(sprite.userData.targetPos, 0.03);
           sprite.material.opacity += (targetOpacity - sprite.material.opacity) * 0.03;
@@ -314,8 +293,7 @@
           let index = 0;
           for (let i = 0; i < plexusPoints.length; i++) {
             for (let j = i + 1; j < plexusPoints.length; j++) {
-              const p1 = plexusPoints[i].position;
-              const p2 = plexusPoints[j].position;
+              const p1 = plexusPoints[i].position, p2 = plexusPoints[j].position;
               if (p1.distanceTo(p2) < 10) {
                 positions[index++] = p1.x; positions[index++] = p1.y; positions[index++] = p1.z;
                 positions[index++] = p2.x; positions[index++] = p2.y; positions[index++] = p2.z;
@@ -328,15 +306,13 @@
         }
       }
 
-      // FIXED: Simple hover detection using intersectObject
       function updateHover() {
         const now = Date.now();
-        if (now - lastHoverCheck < 150) return; // Check every 150ms
+        if (now - lastHoverCheck < 150) return;
         lastHoverCheck = now;
         
         if (!logo) return;
         
-        // FIXED: Use intersectObject instead of intersectBox
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObject(logo, true);
         
@@ -345,12 +321,7 @@
         
         if (isHovering !== wasHovering) {
           document.body.style.cursor = isHovering ? 'pointer' : 'default';
-          
-          // Update bloom strength
-          const targetBloom = isHovering ? 0.6 : 0.3;
-          bloomPass.strength = targetBloom;
-          
-          console.log('🎯 Hover:', isHovering);
+          bloomPass.strength = isHovering ? 0.6 : 0.3;
         }
       }
 
@@ -382,11 +353,8 @@
               <line class="path-line" x1="150" y1="80" x2="60" y2="40"/>
               <circle class="path-dot" cx="60" cy="40" r="5"/>
             </svg>
-            <button id="path-btn-${i}" class="glass-btn" style="pointer-events: auto !important; cursor: pointer; z-index: 102;">
-              Path ${i}
-            </button>
+            <button id="path-btn-${i}" class="glass-btn" style="pointer-events: auto !important; cursor: pointer; z-index: 102;">Path ${i}</button>
           `;
-          
           container.appendChild(node);
         }
       }
@@ -399,7 +367,6 @@
           composer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Mouse move - FIXED
         window.addEventListener('mousemove', (event) => {
           mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
           mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -418,10 +385,7 @@
           if (btn) {
             btn.style.pointerEvents = 'auto';
             btn.style.cursor = 'pointer';
-            btn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              travelTo(i);
-            });
+            btn.addEventListener('click', (e) => { e.stopPropagation(); travelTo(i); });
             btn.addEventListener('mouseenter', () => { isHovering = true; });
             btn.addEventListener('mouseleave', () => { isHovering = false; });
           }
@@ -439,21 +403,12 @@
         isAnimating = true;
         
         const buttons = document.getElementById('path-buttons');
-        if (buttons) {
-          buttons.style.opacity = '0';
-          buttons.style.pointerEvents = 'none';
-        }
+        if (buttons) { buttons.style.opacity = '0'; buttons.style.pointerEvents = 'none'; }
         
         const backBtn = document.getElementById('back-btn');
-        if (backBtn) {
-          backBtn.classList.remove('opacity-100');
-          backBtn.classList.add('opacity-0');
-          backBtn.style.pointerEvents = 'none';
-        }
+        if (backBtn) { backBtn.classList.remove('opacity-100'); backBtn.classList.add('opacity-0'); backBtn.style.pointerEvents = 'none'; }
         
-        const startX = camera.position.x;
-        const startY = camera.position.y;
-        const startZ = camera.position.z;
+        const startX = camera.position.x, startY = camera.position.y, startZ = camera.position.z;
         const startTime = performance.now();
         
         function animate() {
@@ -475,41 +430,24 @@
             requestAnimationFrame(animate);
           } else {
             isAnimating = false;
-            // Turn to face logo when reaching destination
-            if (logo) {
-              camera.lookAt(logo.position);
-            }
+            if (logo) camera.lookAt(logo.position);
             setTimeout(() => {
-              if (backBtn) {
-                backBtn.classList.remove('opacity-0');
-                backBtn.classList.add('opacity-100');
-                backBtn.style.pointerEvents = 'auto';
-              }
+              if (backBtn) { backBtn.classList.remove('opacity-0'); backBtn.classList.add('opacity-100'); backBtn.style.pointerEvents = 'auto'; }
             }, 500);
           }
         }
-        
         animate();
       }
 
       function resetToHome() {
         if (isAnimating) return;
         
-        console.log('🏠 Returning to home');
         isAnimating = true;
-        
         const backBtn = document.getElementById('back-btn');
-        if (backBtn) {
-          backBtn.classList.remove('opacity-100');
-          backBtn.classList.add('opacity-0');
-          backBtn.style.pointerEvents = 'none';
-        }
+        if (backBtn) { backBtn.classList.remove('opacity-100'); backBtn.classList.add('opacity-0'); backBtn.style.pointerEvents = 'none'; }
         
-        const startX = camera.position.x;
-        const startY = camera.position.y;
-        const startZ = camera.position.z;
+        const startX = camera.position.x, startY = camera.position.y, startZ = camera.position.z;
         const startTime = performance.now();
-        
         const duration = 15000;
         
         function animate() {
@@ -523,35 +461,23 @@
           camera.position.y = startY + (HOME.y - startY) * eased;
           camera.position.z = startZ + (HOME.z - startZ) * eased;
           
-          // Always look at logo during return
-          if (logo) {
-            camera.lookAt(logo.position);
-          }
+          if (logo) camera.lookAt(logo.position);
           
           if (progress < 1) {
             requestAnimationFrame(animate);
           } else {
             isAnimating = false;
             setCamera(HOME.x, HOME.y, HOME.z, HOME.h, HOME.v);
-            
             const buttons = document.getElementById('path-buttons');
-            if (buttons) {
-              buttons.style.opacity = '1';
-              buttons.style.pointerEvents = 'auto';
-            }
+            if (buttons) { buttons.style.opacity = '1'; buttons.style.pointerEvents = 'auto'; }
           }
         }
-        
         animate();
       }
 
       function animate() {
         requestAnimationFrame(animate);
-        
-        if (logo) {
-          logo.position.y = 2.0 + Math.sin(Date.now() * 0.0008) * 0.05;
-        }
-        
+        if (logo) logo.position.y = 2.0 + Math.sin(Date.now() * 0.0008) * 0.05;
         updatePlexus();
         updateHover();
         composer.render();
