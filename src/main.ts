@@ -19,22 +19,21 @@ const PATHS = {
 };
 
 // Variables
-let scene: THREE.Scene, camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer, composer: EffectComposer;
-let mountains: THREE.Group | null = null;
-let logo: THREE.Group | null = null;
-let logoMaterials: THREE.Material[] = [];
+let scene, camera, renderer, composer;
+let mountains = null;
+let logo = null;
 let isAnimating = false;
-let plexusGroup: THREE.Group;
-let plexusPoints: THREE.Sprite[] = [];
-let plexusLines: THREE.LineSegments | null = null;
+let plexusGroup;
+let plexusPoints = [];
+let plexusLines = null;
 
 // Easing function
-function easeInOutCubic(t: number): number {
+function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
-// Set camera position and look direction
-function setCamera(x: number, y: number, z: number, h: number, v: number): void {
+// Set camera
+function setCamera(x, y, z, h, v) {
   camera.position.set(x, y, z);
   const dir = new THREE.Vector3();
   dir.x = Math.sin(h) * Math.cos(v);
@@ -43,33 +42,28 @@ function setCamera(x: number, y: number, z: number, h: number, v: number): void 
   camera.lookAt(x + dir.x, y + dir.y, z + dir.z);
 }
 
-// Initialize scene
-function init(): void {
-  // Scene
+// Initialize
+function init() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xffffff);
   scene.fog = new THREE.FogExp2(0xffffff, 0.01);
 
-  // Camera
   camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   setCamera(HOME.x, HOME.y, HOME.z, HOME.h, HOME.v);
 
-  // Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.5;
   renderer.shadowMap.enabled = true;
-  document.getElementById('canvas-container')!.appendChild(renderer.domElement);
+  document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-  // Post-processing
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.2, 0.4, 0.1);
   composer.addPass(bloomPass);
 
-  // Lights
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
   scene.add(ambientLight);
   const mainLight = new THREE.DirectionalLight(0xffffff, 0.6);
@@ -83,19 +77,11 @@ function init(): void {
   logoLight.position.set(-0.6, 2, 8.2);
   scene.add(logoLight);
 
-  // Load models
   loadModels();
-  
-  // Setup plexus
   setupPlexus();
-  
-  // Setup UI
   setupUI();
-  
-  // Setup events
   setupEvents();
-  
-  // Hide loader
+
   setTimeout(() => {
     const loader = document.getElementById('loader');
     loader?.classList.add('opacity-0');
@@ -109,17 +95,14 @@ function init(): void {
     }, 1000);
   }, 500);
 
-  // Start animation
   animate();
 }
 
-// Load 3D models
-async function loadModels(): Promise<void> {
+async function loadModels() {
   const loader = new GLTFLoader();
   
-  // Load mountains
   try {
-    const gltf = await new Promise<THREE.Group>((resolve) => {
+    const gltf = await new Promise((resolve) => {
       loader.load('/models/mountains.glb', (gltf) => resolve(gltf.scene));
     });
     mountains = gltf;
@@ -131,9 +114,8 @@ async function loadModels(): Promise<void> {
     console.log('Mountains model not found');
   }
 
-  // Load logo
   try {
-    const gltf = await new Promise<THREE.Group>((resolve) => {
+    const gltf = await new Promise((resolve) => {
       loader.load('/models/white_mesh.glb', (gltf) => resolve(gltf.scene));
     });
     logo = gltf;
@@ -147,14 +129,13 @@ async function loadModels(): Promise<void> {
   }
 }
 
-// Setup plexus effect
-function setupPlexus(): void {
+function setupPlexus() {
   plexusGroup = new THREE.Group();
   scene.add(plexusGroup);
   
   for (let i = 0; i < 15; i++) {
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext('2d');
     canvas.width = 32;
     canvas.height = 32;
     ctx.fillStyle = 'rgba(0, 212, 255, 0.95)';
@@ -185,15 +166,14 @@ function setupPlexus(): void {
   plexusGroup.add(plexusLines);
 }
 
-// Update plexus
-function updatePlexus(): void {
+function updatePlexus() {
   plexusPoints.forEach(sprite => {
     sprite.position.lerp(sprite.userData.targetPos, 0.03);
     sprite.material.opacity += (0.3 - sprite.material.opacity) * 0.03;
   });
   
   if (plexusLines && plexusPoints.length > 1) {
-    const positions = plexusLines.geometry.attributes.position.array as Float32Array;
+    const positions = plexusLines.geometry.attributes.position.array;
     let index = 0;
     for (let i = 0; i < plexusPoints.length; i++) {
       for (let j = i + 1; j < plexusPoints.length; j++) {
@@ -210,9 +190,8 @@ function updatePlexus(): void {
   }
 }
 
-// Setup UI buttons
-function setupUI(): void {
-  const container = document.getElementById('path-buttons')!;
+function setupUI() {
+  const container = document.getElementById('path-buttons');
   const positions = [
     { top: '15%', left: '-120px' },
     { top: '65%', left: '-100px' },
@@ -239,8 +218,7 @@ function setupUI(): void {
   }
 }
 
-// Setup event listeners
-function setupEvents(): void {
+function setupEvents() {
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -259,18 +237,17 @@ function setupEvents(): void {
   });
 }
 
-// Travel to path
-function travelTo(pathNumber: keyof typeof PATHS): void {
+function travelTo(pathNumber) {
   if (isAnimating) return;
   
   const path = PATHS[pathNumber];
   isAnimating = true;
   
-  const buttons = document.getElementById('path-buttons')!;
+  const buttons = document.getElementById('path-buttons');
   buttons.style.opacity = '0';
   buttons.style.pointerEvents = 'none';
   
-  const backBtn = document.getElementById('back-btn')!;
+  const backBtn = document.getElementById('back-btn');
   backBtn.classList.remove('opacity-100', 'pointer-events-auto');
   backBtn.classList.add('opacity-0', 'pointer-events-none');
   
@@ -279,7 +256,7 @@ function travelTo(pathNumber: keyof typeof PATHS): void {
   const startZ = camera.position.z;
   const startTime = performance.now();
   
-  function animate(): void {
+  function animate() {
     if (!isAnimating) return;
     
     const elapsed = performance.now() - startTime;
@@ -308,13 +285,12 @@ function travelTo(pathNumber: keyof typeof PATHS): void {
   animate();
 }
 
-// Reset to home
-function resetToHome(): void {
+function resetToHome() {
   if (isAnimating) return;
   
   isAnimating = true;
   
-  const backBtn = document.getElementById('back-btn')!;
+  const backBtn = document.getElementById('back-btn');
   backBtn.classList.remove('opacity-100', 'pointer-events-auto');
   backBtn.classList.add('opacity-0', 'pointer-events-none');
   
@@ -323,7 +299,7 @@ function resetToHome(): void {
   const startZ = camera.position.z;
   const startTime = performance.now();
   
-  function animate(): void {
+  function animate() {
     if (!isAnimating) return;
     
     const elapsed = performance.now() - startTime;
@@ -342,7 +318,7 @@ function resetToHome(): void {
       requestAnimationFrame(animate);
     } else {
       isAnimating = false;
-      const buttons = document.getElementById('path-buttons')!;
+      const buttons = document.getElementById('path-buttons');
       buttons.style.opacity = '1';
       buttons.style.pointerEvents = 'auto';
     }
@@ -351,8 +327,7 @@ function resetToHome(): void {
   animate();
 }
 
-// Animation loop
-function animate(): void {
+function animate() {
   requestAnimationFrame(animate);
   
   if (logo) {
@@ -363,5 +338,4 @@ function animate(): void {
   composer.render();
 }
 
-// Start
 init();
