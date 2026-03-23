@@ -22,36 +22,45 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #ffffff; }
     
+    /* FIXED: Better hover effects */
     .glass-btn {
       position: relative;
-      padding: 12px 24px;
+      padding: 14px 28px;
       font-size: 11px;
       font-weight: 700;
       color: #00eaff;
       text-transform: uppercase;
       letter-spacing: 2px;
       cursor: pointer;
-      background: rgba(0, 234, 255, 0.05);
+      background: rgba(0, 234, 255, 0.08);
       backdrop-filter: blur(16px);
-      border: 2px solid rgba(0, 234, 255, 0.5);
+      border: 2px solid rgba(0, 234, 255, 0.6);
       border-radius: 12px;
       overflow: hidden;
-      transition: all 0.4s ease;
-      box-shadow: 0 0 20px rgba(0, 234, 255, 0.3), inset 0 0 20px rgba(0, 234, 255, 0.1);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 0 25px rgba(0, 234, 255, 0.4), inset 0 0 25px rgba(0, 234, 255, 0.15);
       pointer-events: auto !important;
+      z-index: 102;
     }
     
+    /* FIXED: Stronger hover effect */
     .glass-btn:hover {
-      background: rgba(0, 234, 255, 0.2);
-      transform: translateY(-4px) scale(1.05);
-      box-shadow: 0 0 40px rgba(0, 234, 255, 0.8), inset 0 0 30px rgba(0, 234, 255, 0.3);
-      border-color: rgba(0, 234, 255, 0.9);
+      background: rgba(0, 234, 255, 0.25) !important;
+      transform: translateY(-5px) scale(1.08) !important;
+      box-shadow: 0 0 50px rgba(0, 234, 255, 1), inset 0 0 40px rgba(0, 234, 255, 0.4) !important;
+      border-color: rgba(0, 234, 255, 1) !important;
+      color: #ffffff !important;
+      text-shadow: 0 0 10px rgba(0, 234, 255, 1) !important;
+    }
+    
+    .glass-btn:active {
+      transform: translateY(-2px) scale(1.05) !important;
     }
     
     .glass-btn.active {
-      background: rgba(0, 234, 255, 0.25);
-      box-shadow: 0 0 60px rgba(0, 234, 255, 1), inset 0 0 40px rgba(0, 234, 255, 0.4);
-      border-color: #00eaff;
+      background: rgba(0, 234, 255, 0.3) !important;
+      box-shadow: 0 0 70px rgba(0, 234, 255, 1), inset 0 0 50px rgba(0, 234, 255, 0.5) !important;
+      border-color: #00eaff !important;
     }
     
     .path-line {
@@ -96,24 +105,24 @@
 
   <div id="canvas-container" class="fixed inset-0 z-10"></div>
 
-  <!-- Path Buttons - FIXED: pointer-events-auto -->
-  <div id="path-buttons" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] z-[100] pointer-events-auto" style="pointer-events: auto;">
-    <!-- Buttons will be injected here -->
+  <!-- Path Buttons -->
+  <div id="path-buttons" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] z-[100]" style="pointer-events: auto;">
+    <!-- Buttons injected by JS -->
   </div>
 
   <!-- Back Button -->
-  <button id="back-btn" class="fixed bottom-20 right-8 px-8 py-4 text-sm font-bold text-cyan-400 uppercase tracking-wider bg-black/40 backdrop-blur-xl border-2 border-cyan-400/50 rounded-xl opacity-0 pointer-events-none transition-all duration-500 hover:bg-cyan-400/20 hover:scale-105 z-[100]" style="pointer-events: none;">
+  <button id="back-btn" class="fixed bottom-20 right-8 px-8 py-4 text-sm font-bold text-cyan-400 uppercase tracking-wider bg-black/40 backdrop-blur-xl border-2 border-cyan-400/50 rounded-xl opacity-0 transition-all duration-500 hover:bg-cyan-400/20 hover:scale-105 z-[100]" style="pointer-events: none;">
     ← Back to Start
   </button>
 
   <!-- Slogan -->
-  <div class="fixed top-8 left-8 text-cyan-400/70 text-xs tracking-widest italic z-[100] pointer-events-none" style="text-shadow: 0 0 10px rgba(0,234,255,0.5); pointer-events: none;">
+  <div class="fixed top-8 left-8 text-cyan-400/70 text-xs tracking-widest italic z-[100]" style="pointer-events: none; text-shadow: 0 0 10px rgba(0,234,255,0.5);">
     <div class="mb-2">"We find and build what others can't.</div>
     <div>We break what others trust."</div>
   </div>
 
   <!-- Keyboard Hint -->
-  <div class="fixed bottom-8 right-8 px-6 py-4 bg-black/60 backdrop-blur-md rounded-lg text-xs text-gray-400 z-[100] pointer-events-none" style="pointer-events: none;">
+  <div class="fixed bottom-8 right-8 px-6 py-4 bg-black/60 backdrop-blur-md rounded-lg text-xs text-gray-400 z-[100]" style="pointer-events: none;">
     Press <kbd class="px-3 py-2 bg-cyan-400/20 border border-cyan-400/50 rounded text-cyan-400 font-mono font-bold">R</kbd> to reset
   </div>
 
@@ -178,7 +187,6 @@
         );
         composer.addPass(bloomPass);
 
-        // Lights
         scene.add(new THREE.AmbientLight(0xffffff, 0.5));
         const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
         mainLight.position.set(5, 10, 5);
@@ -194,7 +202,6 @@
         setupUI();
         setupEvents();
 
-        // Hide loader
         setTimeout(() => {
           const loader = document.getElementById('loader');
           if (loader) {
@@ -325,7 +332,6 @@
           return;
         }
         
-        // Make sure container accepts pointer events
         container.style.pointerEvents = 'auto';
         container.style.opacity = '1';
         container.style.zIndex = '100';
@@ -377,6 +383,9 @@
             console.log('🔙 Back button clicked');
             resetToHome();
           });
+          backBtn.addEventListener('mouseenter', () => {
+            console.log('👆 Back button hover');
+          });
         }
         
         for (let i = 1; i <= 4; i++) {
@@ -384,16 +393,27 @@
           if (btn) {
             btn.style.pointerEvents = 'auto';
             btn.style.cursor = 'pointer';
+            
             btn.addEventListener('click', (e) => {
               e.stopPropagation();
-              console.log(`🎯 Path ${i} button clicked`);
+              console.log(`🎯 Path ${i} clicked`);
               travelTo(i);
             });
+            
             btn.addEventListener('mouseenter', () => {
               console.log(`👆 Path ${i} hover start`);
+              btn.style.background = 'rgba(0, 234, 255, 0.3)';
+              btn.style.transform = 'translateY(-5px) scale(1.08)';
+              btn.style.boxShadow = '0 0 50px rgba(0, 234, 255, 1), inset 0 0 40px rgba(0, 234, 255, 0.4)';
             });
+            
             btn.addEventListener('mouseleave', () => {
               console.log(`👇 Path ${i} hover end`);
+              if (!btn.classList.contains('active')) {
+                btn.style.background = 'rgba(0, 234, 255, 0.08)';
+                btn.style.transform = 'translateY(0) scale(1)';
+                btn.style.boxShadow = '0 0 25px rgba(0, 234, 255, 0.4), inset 0 0 25px rgba(0, 234, 255, 0.15)';
+              }
             });
           } else {
             console.error(`❌ Button ${i} not found!`);
@@ -410,11 +430,11 @@
 
       function travelTo(pathNumber) {
         if (isAnimating) {
-          console.log('⏸️ Already animating, ignoring click');
+          console.log('⏸️ Already animating');
           return;
         }
         
-        console.log(`🚀 Starting travel to Path ${pathNumber}`);
+        console.log(`🚀 Traveling to Path ${pathNumber}`);
         const path = PATHS[pathNumber];
         isAnimating = true;
         
@@ -426,8 +446,8 @@
         
         const backBtn = document.getElementById('back-btn');
         if (backBtn) {
-          backBtn.classList.remove('opacity-100', 'pointer-events-auto');
-          backBtn.classList.add('opacity-0', 'pointer-events-none');
+          backBtn.classList.remove('opacity-100');
+          backBtn.classList.add('opacity-0');
           backBtn.style.pointerEvents = 'none';
         }
         
@@ -454,12 +474,12 @@
           if (progress < 1) {
             requestAnimationFrame(animate);
           } else {
-            console.log('✅ Path animation complete');
+            console.log('✅ Path complete');
             isAnimating = false;
             setTimeout(() => {
               if (backBtn) {
-                backBtn.classList.remove('opacity-0', 'pointer-events-none');
-                backBtn.classList.add('opacity-100', 'pointer-events-auto');
+                backBtn.classList.remove('opacity-0');
+                backBtn.classList.add('opacity-100');
                 backBtn.style.pointerEvents = 'auto';
               }
             }, 500);
@@ -469,16 +489,17 @@
         animate();
       }
 
+      // FIXED: Smoother, slower return that faces the logo
       function resetToHome() {
         if (isAnimating) return;
         
-        console.log('🏠 Resetting to home position');
+        console.log('🏠 Returning to home (smooth & slow)');
         isAnimating = true;
         
         const backBtn = document.getElementById('back-btn');
         if (backBtn) {
-          backBtn.classList.remove('opacity-100', 'pointer-events-auto');
-          backBtn.classList.add('opacity-0', 'pointer-events-none');
+          backBtn.classList.remove('opacity-100');
+          backBtn.classList.add('opacity-0');
           backBtn.style.pointerEvents = 'none';
         }
         
@@ -487,26 +508,34 @@
         const startZ = camera.position.z;
         const startTime = performance.now();
         
+        // FIXED: Slower duration (20 seconds instead of 12)
+        const duration = 20000;
+        
         function animate() {
           if (!isAnimating) return;
           
           const elapsed = performance.now() - startTime;
-          const progress = Math.min(elapsed / 12000, 1);
+          const progress = Math.min(elapsed / duration, 1);
           const eased = easeInOutCubic(progress);
           
           camera.position.x = startX + (HOME.x - startX) * eased;
           camera.position.y = startY + (HOME.y - startY) * eased;
           camera.position.z = startZ + (HOME.z - startZ) * eased;
           
-          const h = HOME.h * eased;
-          const v = HOME.v * eased;
-          setCamera(camera.position.x, camera.position.y, camera.position.z, h, v);
+          // FIXED: Always look at the logo during return
+          if (logo) {
+            camera.lookAt(logo.position);
+          }
           
           if (progress < 1) {
             requestAnimationFrame(animate);
           } else {
-            console.log('✅ Reset complete');
+            console.log('✅ Home reached');
             isAnimating = false;
+            
+            // Set exact home position and look direction
+            setCamera(HOME.x, HOME.y, HOME.z, HOME.h, HOME.v);
+            
             const buttons = document.getElementById('path-buttons');
             if (buttons) {
               buttons.style.opacity = '1';
@@ -529,7 +558,6 @@
         composer.render();
       }
 
-      // Start when DOM is ready
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
       } else {
