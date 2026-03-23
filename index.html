@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offensive Bloom - Ice Mountain 3D</title>
+  <link rel="stylesheet" href="./src/ui/styles.css" />
+</head>
+<body class="bg-white overflow-hidden">
+  <!-- Loader -->
+  <div id="loader" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gradient-to-br from-dark-bg to-gray-900 transition-opacity duration-1000">
+    <div class="text-center">
+      <div class="font-mono text-4xl font-bold text-cyan-glow animate-pulse mb-5" style="text-shadow: 0 0 20px rgba(0,212,255,0.8)">
+        ---===+++===---
+      </div>
+      <div class="text-lg text-gray-400 tracking-widest uppercase mb-2">Loading...</div>
+      <div id="loading-status" class="text-sm text-cyan-glow opacity-70">Initializing...</div>
+    </div>
+  </div>
+
+  <!-- Welcome Overlay -->
+  <div id="welcome-overlay" class="fixed inset-0 z-[10001] flex items-center justify-center bg-black/95 transition-opacity duration-1500">
+    <div class="text-center">
+      <div class="font-mono text-6xl font-bold text-cyan-glow tracking-widest overflow-hidden whitespace-nowrap border-r-4 border-cyan-glow animate-typewriter" 
+           style="text-shadow: 0 0 30px rgba(0,234,255,1)">
+        WELCOME TO OFFENSIVE BLOOM
+      </div>
+      <div class="font-mono text-sm text-cyan-glow/60 tracking-widest mt-8 animate-fade-in-out">
+        SECURE ELEMENTS INITIALIZING...
+      </div>
+    </div>
+  </div>
+
+  <!-- 3D Canvas -->
+  <div id="canvas-container" class="fixed inset-0 z-10"></div>
+
+  <!-- UI Container -->
+  <div id="ui-container" class="fixed inset-0 z-100 pointer-events-none">
+    <!-- Path Buttons -->
+    <div id="path-buttons" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[250px] pointer-events-none transition-opacity duration-500">
+      <!-- Buttons will be injected by TypeScript -->
+    </div>
+
+    <!-- Back Button -->
+    <button id="back-btn" class="absolute bottom-16 right-5 px-6 py-3 text-sm font-semibold text-cyan-glow uppercase tracking-wide bg-white/5 backdrop-blur-xl border border-cyan-glow/50 rounded-xl shadow-lg opacity-0 pointer-events-none transition-all duration-500 hover:bg-cyan-glow/15 hover:-translate-y-1">
+      ← Back to Start
+    </button>
+
+    <!-- Slogan -->
+    <div class="absolute top-5 left-5 text-cyan-glow/70 text-xs tracking-widest font-light italic pointer-events-none" style="text-shadow: 0 0 10px rgba(0,234,255,0.5)">
+      <div class="mb-1">"We find and build what others can't.</div>
+      <div>We break what others trust."</div>
+    </div>
+
+    <!-- Keyboard Hint -->
+    <div class="absolute bottom-5 right-5 px-4 py-3 bg-black/60 backdrop-blur-md rounded-lg text-xs text-gray-400 pointer-events-none">
+      Press <kbd class="px-2 py-1 bg-cyan-glow/20 border border-cyan-glow/30 rounded text-cyan-glow font-mono">R</kbd> to reset
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
