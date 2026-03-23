@@ -42,17 +42,19 @@
       z-index: 102;
     }
     
+    /* FIXED: Strong button hover with !important */
     .glass-btn:hover {
-      background: rgba(0, 234, 255, 0.25) !important;
+      background: rgba(0, 234, 255, 0.3) !important;
       transform: translateY(-5px) scale(1.08) !important;
-      box-shadow: 0 0 50px rgba(0, 234, 255, 0.9), inset 0 0 40px rgba(0, 234, 255, 0.4) !important;
+      box-shadow: 0 0 60px rgba(0, 234, 255, 1), inset 0 0 50px rgba(0, 234, 255, 0.5) !important;
       border-color: rgba(0, 234, 255, 1) !important;
       color: #ffffff !important;
+      text-shadow: 0 0 15px rgba(0, 234, 255, 1) !important;
     }
     
     .glass-btn.active {
-      background: rgba(0, 234, 255, 0.3) !important;
-      box-shadow: 0 0 70px rgba(0, 234, 255, 1), inset 0 0 50px rgba(0, 234, 255, 0.5) !important;
+      background: rgba(0, 234, 255, 0.35) !important;
+      box-shadow: 0 0 80px rgba(0, 234, 255, 1), inset 0 0 60px rgba(0, 234, 255, 0.6) !important;
       border-color: #00eaff !important;
     }
     
@@ -124,6 +126,8 @@
       let isHovering = false;
       let raycaster, mouse;
       let lastHoverCheck = 0;
+      let logoCenter = new THREE.Vector3();
+      let logoRadius = 3; // Radius for hover detection
 
       const HOME = { 
         x: -0.51, y: 2.14, z: 10.47, 
@@ -236,6 +240,15 @@
             logo.rotation.set(0, 0, 2 * Math.PI / 180);
             logo.castShadow = true;
             scene.add(logo);
+            
+            // FIXED: Calculate logo center and size for hover
+            const box = new THREE.Box3().setFromObject(logo);
+            box.getCenter(logoCenter);
+            const size = new THREE.Vector3();
+            box.getSize(size);
+            logoRadius = Math.max(size.x, size.y, size.z) * 0.8;
+            
+            console.log('Logo center:', logoCenter, 'Radius:', logoRadius);
           },
           undefined,
           (e) => console.log('Logo:', e.message)
@@ -306,22 +319,34 @@
         }
       }
 
+      // FIXED: Better hover detection using distance
       function updateHover() {
         const now = Date.now();
-        if (now - lastHoverCheck < 150) return;
+        if (now - lastHoverCheck < 100) return; // Check every 100ms
         lastHoverCheck = now;
         
         if (!logo) return;
         
+        // Method 1: Raycasting
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObject(logo, true);
         
+        // Method 2: Distance check (fallback)
+        const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5);
+        vector.unproject(camera);
+        const dir = vector.sub(camera.position).normalize();
+        const distance = -camera.position.z / dir.z;
+        const pos = camera.position.clone().add(dir.multiplyScalar(distance));
+        const distanceToLogo = pos.distanceTo(logoCenter);
+        
+        // FIXED: Use either raycast hit OR distance check
         const wasHovering = isHovering;
-        isHovering = intersects.length > 0;
+        isHovering = intersects.length > 0 || distanceToLogo < logoRadius;
         
         if (isHovering !== wasHovering) {
           document.body.style.cursor = isHovering ? 'pointer' : 'default';
           bloomPass.strength = isHovering ? 0.6 : 0.3;
+          console.log('Hover:', isHovering, 'Distance:', distanceToLogo.toFixed(2), 'Radius:', logoRadius.toFixed(2));
         }
       }
 
@@ -355,6 +380,18 @@
             </svg>
             <button id="path-btn-${i}" class="glass-btn" style="pointer-events: auto !important; cursor: pointer; z-index: 102;">Path ${i}</button>
           `;
+          
+          // FIXED: Add direct event listeners to buttons
+          const btn = node.querySelector('.glass-btn');
+          btn.addEventListener('mouseenter', () => {
+            isHovering = true;
+            console.log('Button', i, 'hover start');
+          });
+          btn.addEventListener('mouseleave', () => {
+            isHovering = false;
+            console.log('Button', i, 'hover end');
+          });
+          
           container.appendChild(node);
         }
       }
@@ -385,9 +422,11 @@
           if (btn) {
             btn.style.pointerEvents = 'auto';
             btn.style.cursor = 'pointer';
-            btn.addEventListener('click', (e) => { e.stopPropagation(); travelTo(i); });
-            btn.addEventListener('mouseenter', () => { isHovering = true; });
-            btn.addEventListener('mouseleave', () => { isHovering = false; });
+            btn.addEventListener('click', (e) => { 
+              e.stopPropagation(); 
+              console.log('Path', i, 'clicked');
+              travelTo(i); 
+            });
           }
         }
 
