@@ -118,11 +118,11 @@
       'use strict';
       
       let scene, camera, renderer, composer, bloomPass;
-      let mountains = null, logo = null, logoGroup = null;
+      let mountains = null, logo = null;
       let isAnimating = false;
       let plexusGroup, plexusPoints = [], plexusLines = null;
       
-      // Hover state - OPTIMIZED
+      // Hover state - FIXED
       let isHovering = false;
       let raycaster, mouse;
       let lastHoverCheck = 0;
@@ -177,9 +177,7 @@
         
         bloomPass = new THREE.UnrealBloomPass(
           new THREE.Vector2(window.innerWidth, window.innerHeight), 
-          0.3,  // REDUCED from 0.5
-          0.5,  // radius
-          0.2   // threshold (higher = less bloom)
+          0.3, 0.5, 0.2
         );
         composer.addPass(bloomPass);
 
@@ -192,7 +190,7 @@
         logoLight.position.set(-0.6, 2, 8.2);
         scene.add(logoLight);
 
-        // Raycaster
+        // Raycaster - FIXED
         raycaster = new THREE.Raycaster();
         mouse = new THREE.Vector2();
 
@@ -247,9 +245,8 @@
             logo.rotation.set(0, 0, 2 * Math.PI / 180);
             logo.castShadow = true;
             
-            // Create a bounding box for the entire logo
-            const box = new THREE.Box3().setFromObject(logo);
-            logo.userData.boundingBox = box;
+            // Store logo for hover detection
+            logo.userData = { isHoverable: true };
             
             scene.add(logo);
             console.log('✅ Logo loaded');
@@ -331,32 +328,29 @@
         }
       }
 
-      // OPTIMIZED: Check hover less frequently
+      // FIXED: Simple hover detection using intersectObject
       function updateHover() {
         const now = Date.now();
-        if (now - lastHoverCheck < 100) return; // Check every 100ms instead of every frame
+        if (now - lastHoverCheck < 150) return; // Check every 150ms
         lastHoverCheck = now;
         
         if (!logo) return;
         
-        // Use bounding box for faster detection
-        const box = logo.userData.boundingBox;
-        if (!box) return;
-        
+        // FIXED: Use intersectObject instead of intersectBox
         raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectBox(box, new THREE.Vector3());
+        const intersects = raycaster.intersectObject(logo, true);
         
         const wasHovering = isHovering;
-        isHovering = intersects.length > 0 || raycaster.intersectObject(logo, true).length > 0;
+        isHovering = intersects.length > 0;
         
         if (isHovering !== wasHovering) {
           document.body.style.cursor = isHovering ? 'pointer' : 'default';
           
-          // Update bloom strength - OPTIMIZED
+          // Update bloom strength
           const targetBloom = isHovering ? 0.6 : 0.3;
           bloomPass.strength = targetBloom;
           
-          console.log('🎯 Hover:', isHovering, 'Bloom:', targetBloom);
+          console.log('🎯 Hover:', isHovering);
         }
       }
 
@@ -405,7 +399,7 @@
           composer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Mouse move - OPTIMIZED
+        // Mouse move - FIXED
         window.addEventListener('mousemove', (event) => {
           mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
           mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -481,7 +475,7 @@
             requestAnimationFrame(animate);
           } else {
             isAnimating = false;
-            // FIXED: Turn to face logo when reaching destination
+            // Turn to face logo when reaching destination
             if (logo) {
               camera.lookAt(logo.position);
             }
@@ -498,7 +492,6 @@
         animate();
       }
 
-      // FIXED: Simple forward movement to logo
       function resetToHome() {
         if (isAnimating) return;
         
@@ -517,7 +510,7 @@
         const startZ = camera.position.z;
         const startTime = performance.now();
         
-        const duration = 15000; // 15 seconds
+        const duration = 15000;
         
         function animate() {
           if (!isAnimating) return;
@@ -530,7 +523,7 @@
           camera.position.y = startY + (HOME.y - startY) * eased;
           camera.position.z = startZ + (HOME.z - startZ) * eased;
           
-          // FIXED: Always look at logo during return
+          // Always look at logo during return
           if (logo) {
             camera.lookAt(logo.position);
           }
@@ -560,7 +553,7 @@
         }
         
         updatePlexus();
-        updateHover(); // OPTIMIZED hover check
+        updateHover();
         composer.render();
       }
 
